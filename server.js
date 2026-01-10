@@ -69,7 +69,8 @@ io.on('connection', (socket) => {
             user,
             text,
             type: type || 'user',
-            time: Date.now()
+            time: Date.now(),
+            color: data.color || null
         };
         
         rooms[roomId].push(message);

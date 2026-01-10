@@ -44,6 +44,16 @@
         .user { color: #00ffff; }
         .system { color: #ffff00; }
         .status { color: #ff6b6b; }
+        
+        /* User color classes */
+        .color-green { color: #00ff00 !important; }
+        .color-cyan { color: #00ffff !important; }
+        .color-yellow { color: #ffff00 !important; }
+        .color-magenta { color: #ff00ff !important; }
+        .color-red { color: #ff6b6b !important; }
+        .color-blue { color: #6b9eff !important; }
+        .color-orange { color: #ffa500 !important; }
+        .color-purple { color: #9966cc !important; }
         #input-line {
             display: flex;
             align-items: center;
@@ -140,7 +150,7 @@
 </head>
 <body>
     <div id="terminal">
-        <div id="header">Terminal Chat v3.1 - Mobile Ready | Share URL to chat</div>
+        <div id="header">Terminal Chat v3.2 - Color Support | Use /color to change text color</div>
         <div id="messages"></div>
         <div id="input-line">
             <span id="prompt">guest@chat:~$</span>
@@ -157,6 +167,7 @@
         const prompt = document.getElementById('prompt');
         
         let username = localStorage.getItem('chat_username') || 'guest';
+        let userColor = localStorage.getItem('chat_color') || 'cyan';
         let roomId = new URLSearchParams(window.location.search).get('room') || generateRoomId();
         let connected = false;
         
@@ -169,9 +180,14 @@
             return id;
         }
         
-        function addMessage(user, text, type = 'user') {
+        function addMessage(user, text, type = 'user', color = null) {
             const msg = document.createElement('div');
             msg.className = `message ${type}`;
+            
+            if (type === 'user' && color) {
+                msg.classList.add(`color-${color}`);
+            }
+            
             msg.innerHTML = `<span style="color: #ff6b6b">[${new Date().toLocaleTimeString()}]</span> <span style="color: #4ecdc4">${user}:</span> ${text}`;
             messages.appendChild(msg);
             messages.scrollTop = messages.scrollHeight;
@@ -183,7 +199,8 @@
                     roomId,
                     user,
                     text,
-                    type
+                    type,
+                    color: type === 'user' ? userColor : null
                 });
             }
         }
@@ -203,12 +220,12 @@
         
         socket.on('load-messages', (roomMessages) => {
             roomMessages.forEach(msg => {
-                addMessage(msg.user, msg.text, msg.type);
+                addMessage(msg.user, msg.text, msg.type, msg.color);
             });
         });
         
         socket.on('new-message', (message) => {
-            addMessage(message.user, message.text, message.type);
+            addMessage(message.user, message.text, message.type, message.color);
         });
         
         // Input handling with mobile support
@@ -242,13 +259,29 @@
                 localStorage.setItem('chat_username', username);
                 prompt.textContent = `${username}@chat:~$`;
                 sendMessage('system', `${username} joined the chat`, 'system');
+            } else if (text.startsWith('/color ')) {
+                const newColor = text.substring(7).toLowerCase();
+                const validColors = ['green', 'cyan', 'yellow', 'magenta', 'red', 'blue', 'orange', 'purple'];
+                
+                if (validColors.includes(newColor)) {
+                    userColor = newColor;
+                    localStorage.setItem('chat_color', userColor);
+                    addMessage('system', `Color changed to ${newColor}`, 'system');
+                } else {
+                    addMessage('system', `Available colors: ${validColors.join(', ')}`, 'system');
+                }
             } else if (text === '/clear') {
                 messages.innerHTML = '';
             } else if (text === '/room') {
                 addMessage('system', `Current room: ${roomId}`, 'system');
                 addMessage('system', `Share URL: ${window.location.href}`, 'system');
             } else if (text === '/help') {
-                addMessage('system', 'Commands: /nick <name>, /clear, /room, /help', 'system');
+                addMessage('system', 'Commands:', 'system');
+                addMessage('system', '/nick <name> - Change username', 'system');
+                addMessage('system', '/color <color> - Change text color', 'system');
+                addMessage('system', '/clear - Clear chat', 'system');
+                addMessage('system', '/room - Show room info', 'system');
+                addMessage('system', 'Colors: green, cyan, yellow, magenta, red, blue, orange, purple', 'system');
             } else {
                 sendMessage(username, text);
             }
@@ -268,7 +301,7 @@
         
         // Initial messages
         addMessage('system', 'Connecting to server...', 'system');
-        addMessage('system', 'Commands: /nick <name>, /clear, /room, /help', 'system');
+        addMessage('system', 'Commands: /nick <name>, /color <color>, /clear, /room, /help', 'system');
     </script>
 </body>
 </html>
