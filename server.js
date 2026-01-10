@@ -10,6 +10,34 @@ const io = socketIo(server);
 // Store messages in memory (resets on server restart)
 const rooms = {};
 
+// Auto-cleanup messages older than 12 hours
+const CLEANUP_INTERVAL = 12 * 60 * 60 * 1000; // 12 hours in milliseconds
+
+function cleanupOldMessages() {
+    const now = Date.now();
+    const cutoffTime = now - CLEANUP_INTERVAL;
+    
+    Object.keys(rooms).forEach(roomId => {
+        if (rooms[roomId]) {
+            const originalCount = rooms[roomId].length;
+            rooms[roomId] = rooms[roomId].filter(message => message.time > cutoffTime);
+            
+            if (originalCount > rooms[roomId].length) {
+                console.log(`Cleaned up ${originalCount - rooms[roomId].length} old messages from room ${roomId}`);
+            }
+            
+            // Remove empty rooms
+            if (rooms[roomId].length === 0) {
+                delete rooms[roomId];
+                console.log(`Removed empty room ${roomId}`);
+            }
+        }
+    });
+}
+
+// Run cleanup every hour
+setInterval(cleanupOldMessages, 60 * 60 * 1000);
+
 // Serve static files
 app.use(express.static('public'));
 
@@ -20,9 +48,12 @@ io.on('connection', (socket) => {
     socket.on('join-room', (roomId) => {
         socket.join(roomId);
         
-        // Send existing messages to new user
+        // Send existing messages to new user (only messages from last 12 hours)
         if (rooms[roomId]) {
-            socket.emit('load-messages', rooms[roomId]);
+            const now = Date.now();
+            const cutoffTime = now - CLEANUP_INTERVAL;
+            const recentMessages = rooms[roomId].filter(msg => msg.time > cutoffTime);
+            socket.emit('load-messages', recentMessages);
         }
         
         console.log(`User ${socket.id} joined room ${roomId}`);
@@ -43,7 +74,7 @@ io.on('connection', (socket) => {
         
         rooms[roomId].push(message);
         
-        // Keep only last 100 messages per room
+        // Keep only last 100 messages per room (in addition to time-based cleanup)
         if (rooms[roomId].length > 100) {
             rooms[roomId] = rooms[roomId].slice(-100);
         }
@@ -62,4 +93,5 @@ io.on('connection', (socket) => {
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
+    console.log('Auto-cleanup: Messages older than 12 hours will be deleted');
 });
