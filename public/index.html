@@ -54,6 +54,19 @@
         .color-blue { color: #6b9eff !important; }
         .color-orange { color: #ffa500 !important; }
         .color-purple { color: #9966cc !important; }
+        
+        /* Link styling */
+        a {
+            color: #88ff88 !important;
+            text-decoration: underline;
+        }
+        a:hover {
+            color: #aaffaa !important;
+            text-decoration: none;
+        }
+        a:visited {
+            color: #66dd66 !important;
+        }
         #input-line {
             display: flex;
             align-items: center;
@@ -150,7 +163,7 @@
 </head>
 <body>
     <div id="terminal">
-        <div id="header">Terminal Chat v3.3 - Password Protected | Use /setpass to secure your room</div>
+        <div id="header">Terminal Chat v3.4 - Clickable Links | URLs are automatically clickable</div>
         <div id="messages"></div>
         <div id="input-line">
             <span id="prompt">guest@chat:~$</span>
@@ -189,7 +202,11 @@
                 msg.classList.add(`color-${color}`);
             }
             
-            msg.innerHTML = `<span style="color: #ff6b6b">[${new Date().toLocaleTimeString()}]</span> <span style="color: #4ecdc4">${user}:</span> ${text}`;
+            // Make URLs clickable
+            const urlRegex = /(https?:\/\/[^\s]+)/g;
+            const linkifiedText = text.replace(urlRegex, '<a href="$1" target="_blank" style="color: #88ff88; text-decoration: underline;">$1</a>');
+            
+            msg.innerHTML = `<span style="color: #ff6b6b">[${new Date().toLocaleTimeString()}]</span> <span style="color: #4ecdc4">${user}:</span> ${linkifiedText}`;
             messages.appendChild(msg);
             messages.scrollTop = messages.scrollHeight;
         }
