@@ -171,7 +171,7 @@
 </head>
 <body>
     <div id="terminal">
-        <div id="header">Terminal Chat v3.5 - Copy Support | Select text or use /copy command</div>
+        <div id="header">Terminal Chat v3.6 - Enhanced Copy | /copy command with fallback modal</div>
         <div id="messages"></div>
         <div id="input-line">
             <span id="prompt">guest@chat:~$</span>
@@ -365,21 +365,94 @@
             });
             
             if (chatText.trim()) {
-                navigator.clipboard.writeText(chatText.trim()).then(() => {
-                    addMessage('system', 'Chat copied to clipboard!', 'system');
-                }).catch(() => {
-                    // Fallback for older browsers
-                    const textArea = document.createElement('textarea');
-                    textArea.value = chatText.trim();
-                    document.body.appendChild(textArea);
-                    textArea.select();
-                    document.execCommand('copy');
-                    document.body.removeChild(textArea);
-                    addMessage('system', 'Chat copied to clipboard!', 'system');
-                });
+                // Try modern clipboard API first
+                if (navigator.clipboard && window.isSecureContext) {
+                    navigator.clipboard.writeText(chatText.trim()).then(() => {
+                        addMessage('system', 'Chat copied to clipboard!', 'system');
+                    }).catch(() => {
+                        fallbackCopy(chatText.trim());
+                    });
+                } else {
+                    fallbackCopy(chatText.trim());
+                }
             } else {
                 addMessage('system', 'No messages to copy', 'system');
             }
+        }
+        
+        function fallbackCopy(text) {
+            try {
+                const textArea = document.createElement('textarea');
+                textArea.value = text;
+                textArea.style.position = 'fixed';
+                textArea.style.left = '-999999px';
+                textArea.style.top = '-999999px';
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                
+                const successful = document.execCommand('copy');
+                document.body.removeChild(textArea);
+                
+                if (successful) {
+                    addMessage('system', 'Chat copied to clipboard!', 'system');
+                } else {
+                    showCopyModal(text);
+                }
+            } catch (err) {
+                showCopyModal(text);
+            }
+        }
+        
+        function showCopyModal(text) {
+            // Create modal for manual copy
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+                background: rgba(0,0,0,0.8); z-index: 1000; display: flex;
+                align-items: center; justify-content: center;
+            `;
+            
+            const content = document.createElement('div');
+            content.style.cssText = `
+                background: #111; border: 2px solid #00ff00; padding: 20px;
+                max-width: 80%; max-height: 80%; overflow: auto;
+                font-family: 'Courier New', monospace; color: #00ff00;
+            `;
+            
+            const title = document.createElement('div');
+            title.textContent = 'Copy Chat (Select All & Copy):';
+            title.style.cssText = 'margin-bottom: 10px; color: #ffff00;';
+            
+            const textArea = document.createElement('textarea');
+            textArea.value = text;
+            textArea.style.cssText = `
+                width: 100%; height: 300px; background: #000; color: #00ff00;
+                border: 1px solid #333; font-family: 'Courier New', monospace;
+                font-size: 12px; padding: 10px;
+            `;
+            textArea.readOnly = true;
+            
+            const closeBtn = document.createElement('button');
+            closeBtn.textContent = 'Close';
+            closeBtn.style.cssText = `
+                margin-top: 10px; background: #333; color: #00ff00;
+                border: 1px solid #00ff00; padding: 5px 15px;
+                font-family: 'Courier New', monospace; cursor: pointer;
+            `;
+            
+            closeBtn.onclick = () => document.body.removeChild(modal);
+            modal.onclick = (e) => { if (e.target === modal) document.body.removeChild(modal); };
+            
+            content.appendChild(title);
+            content.appendChild(textArea);
+            content.appendChild(closeBtn);
+            modal.appendChild(content);
+            document.body.appendChild(modal);
+            
+            // Auto-select text
+            textArea.select();
+            textArea.focus();
         }
         
         // Prevent zoom on iOS
