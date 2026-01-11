@@ -282,8 +282,12 @@
         socket.on('new-message', (message) => {
             addMessage(message.user, message.text, message.type, message.color);
             
+            // Debug logging
+            console.log('New message:', message.user, 'Current user:', username, 'Page visible:', isPageVisible, 'Notifications enabled:', notificationsEnabled);
+            
             // Show notification if page is not visible and it's not from current user
             if (!isPageVisible && message.user !== username && message.type === 'user' && notificationsEnabled) {
+                console.log('Showing notification for:', message.user, message.text);
                 showNotification(message.user, message.text);
             }
         });
@@ -467,24 +471,27 @@
         
         // Notification functions
         function requestNotificationPermission() {
+            console.log('Requesting notification permission...');
+            
             if (!('Notification' in window)) {
                 addMessage('system', 'Browser does not support notifications', 'system');
                 return;
             }
             
+            console.log('Current permission:', Notification.permission);
+            
             if (Notification.permission === 'granted') {
                 notificationsEnabled = true;
                 addMessage('system', 'Notifications already enabled!', 'system');
+                // Test notification immediately
+                showTestNotification();
             } else if (Notification.permission !== 'denied') {
                 Notification.requestPermission().then(permission => {
+                    console.log('Permission result:', permission);
                     if (permission === 'granted') {
                         notificationsEnabled = true;
                         addMessage('system', 'Notifications enabled! You\'ll get alerts when tab is not visible', 'system');
-                        // Test notification
-                        new Notification('Terminal Chat', {
-                            body: 'Notifications are now enabled!',
-                            icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="%23000"/><text x="50" y="60" font-family="monospace" font-size="40" fill="%2300ff00" text-anchor="middle">💬</text></svg>'
-                        });
+                        showTestNotification();
                     } else {
                         addMessage('system', 'Notifications denied', 'system');
                     }
@@ -494,12 +501,12 @@
             }
         }
         
-        function showNotification(user, text) {
-            if (notificationsEnabled && Notification.permission === 'granted') {
-                const notification = new Notification(`${user} in Terminal Chat`, {
-                    body: text.length > 100 ? text.substring(0, 100) + '...' : text,
-                    icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="%23000"/><text x="50" y="60" font-family="monospace" font-size="40" fill="%2300ff00" text-anchor="middle">💬</text></svg>',
-                    tag: 'terminal-chat'
+        function showTestNotification() {
+            try {
+                const notification = new Notification('Terminal Chat Test', {
+                    body: 'Notifications are working! You\'ll get alerts for new messages.',
+                    icon: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiBmaWxsPSIjMDAwMDAwIi8+Cjx0ZXh0IHg9IjE2IiB5PSIyMCIgZm9udC1mYW1pbHk9Im1vbm9zcGFjZSIgZm9udC1zaXplPSIxNiIgZmlsbD0iIzAwZmYwMCIgdGV4dC1hbmNob3I9Im1pZGRsZSI+8J+SrDwvdGV4dD4KPHN2Zz4=',
+                    tag: 'terminal-chat-test'
                 });
                 
                 notification.onclick = () => {
@@ -507,22 +514,56 @@
                     notification.close();
                 };
                 
-                // Auto-close after 5 seconds
-                setTimeout(() => notification.close(), 5000);
+                setTimeout(() => notification.close(), 3000);
+            } catch (error) {
+                console.error('Test notification failed:', error);
+                addMessage('system', 'Test notification failed: ' + error.message, 'system');
+            }
+        }
+        
+        function showNotification(user, text) {
+            console.log('showNotification called:', user, text, 'Permission:', Notification.permission);
+            
+            if (notificationsEnabled && Notification.permission === 'granted') {
+                try {
+                    const notification = new Notification(`💬 ${user}`, {
+                        body: text.length > 100 ? text.substring(0, 100) + '...' : text,
+                        icon: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiBmaWxsPSIjMDAwMDAwIi8+Cjx0ZXh0IHg9IjE2IiB5PSIyMCIgZm9udC1mYW1pbHk9Im1vbm9zcGFjZSIgZm9udC1zaXplPSIxNiIgZmlsbD0iIzAwZmYwMCIgdGV4dC1hbmNob3I9Im1pZGRsZSI+8J+SrDwvdGV4dD4KPHN2Zz4=',
+                        tag: 'terminal-chat',
+                        requireInteraction: false
+                    });
+                    
+                    notification.onclick = () => {
+                        window.focus();
+                        notification.close();
+                    };
+                    
+                    // Auto-close after 5 seconds
+                    setTimeout(() => notification.close(), 5000);
+                    console.log('Notification created successfully');
+                } catch (error) {
+                    console.error('Notification failed:', error);
+                    addMessage('system', 'Notification error: ' + error.message, 'system');
+                }
+            } else {
+                console.log('Notification not shown - enabled:', notificationsEnabled, 'permission:', Notification.permission);
             }
         }
         
         // Page visibility detection
         document.addEventListener('visibilitychange', () => {
             isPageVisible = !document.hidden;
+            console.log('Page visibility changed:', isPageVisible);
         });
         
         window.addEventListener('focus', () => {
             isPageVisible = true;
+            console.log('Window focused');
         });
         
         window.addEventListener('blur', () => {
             isPageVisible = false;
+            console.log('Window blurred');
         });
         
         // Prevent zoom on iOS
