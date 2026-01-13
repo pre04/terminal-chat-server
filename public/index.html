@@ -292,6 +292,11 @@
             }
         });
         
+        socket.on('chat-deleted', () => {
+            messages.innerHTML = '';
+            addMessage('system', 'Chat history deleted by user', 'system');
+        });
+        
         // Input handling with mobile support
         input.addEventListener('keypress', (e) => {
             if (e.key === 'Enter' && input.value.trim()) {
@@ -344,6 +349,12 @@
                 }
             } else if (text === '/clear') {
                 messages.innerHTML = '';
+            } else if (text === '/delete') {
+                if (connected && authenticated) {
+                    socket.emit('delete-chat', { roomId });
+                } else {
+                    addMessage('system', 'Must be connected to delete chat', 'system');
+                }
             } else if (text === '/room') {
                 addMessage('system', `Current room: ${roomId}`, 'system');
                 addMessage('system', `Share URL: ${window.location.href}`, 'system');
@@ -361,6 +372,7 @@
                 addMessage('system', '/notify - Enable desktop notifications', 'system');
                 addMessage('system', '/copy - Copy all chat messages', 'system');
                 addMessage('system', '/clear - Clear chat', 'system');
+                addMessage('system', '/delete - Delete all chat messages for everyone', 'system');
                 addMessage('system', '/room - Show room info', 'system');
                 addMessage('system', 'Colors: green, cyan, yellow, magenta, red, blue, orange, purple', 'system');
             } else {

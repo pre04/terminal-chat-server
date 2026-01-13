@@ -112,6 +112,19 @@ io.on('connection', (socket) => {
         console.log(`Message in room ${roomId}: ${user}: ${text}`);
     });
     
+    socket.on('delete-chat', (data) => {
+        const { roomId } = data;
+        
+        // Clear all messages from room
+        if (rooms[roomId]) {
+            rooms[roomId] = [];
+            console.log(`Chat deleted in room ${roomId}`);
+        }
+        
+        // Broadcast to all users in room
+        io.to(roomId).emit('chat-deleted');
+    });
+    
     socket.on('disconnect', () => {
         console.log('User disconnected:', socket.id);
     });
