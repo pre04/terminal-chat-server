@@ -225,6 +225,10 @@
             }
         }
         
+        input.addEventListener('focus', () => {
+            setTimeout(() => messages.scrollTop = messages.scrollHeight, 300);
+        });
+        
         input.addEventListener('keypress', async (e) => {
             if (e.key === 'Enter' && input.value.trim()) {
                 const text = input.value.trim();
