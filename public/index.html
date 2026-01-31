@@ -375,9 +375,16 @@
         input.addEventListener('focus', () => {
             setTimeout(() => {
                 messages.scrollTop = messages.scrollHeight;
-                window.scrollTo(0, 0);
-            }, 300);
+            }, 100);
         });
+        
+        // Handle mobile keyboard resize
+        if (window.visualViewport) {
+            window.visualViewport.addEventListener('resize', () => {
+                document.getElementById('terminal').style.height = window.visualViewport.height + 'px';
+                messages.scrollTop = messages.scrollHeight;
+            });
+        }
         
         input.addEventListener('keypress', (e) => {
             if (e.key === 'Enter' && input.value.trim()) {
