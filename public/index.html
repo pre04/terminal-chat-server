@@ -41,7 +41,7 @@
             margin: 3px 0;
             word-wrap: break-word;
             font-size: 14px;
-            cursor: text;
+            cursor: pointer;
             -webkit-user-select: text;
             -moz-user-select: text;
             -ms-user-select: text;
@@ -50,6 +50,21 @@
         .message:hover {
             background: rgba(255, 255, 255, 0.05);
         }
+        .reactions { font-size: 14px; margin-left: 10px; }
+        #emoji-picker {
+            display: none;
+            position: fixed;
+            bottom: 60px;
+            left: 10px;
+            background: #111;
+            border: 1px solid #00ff00;
+            padding: 10px;
+            font-size: 20px;
+            max-width: 280px;
+            z-index: 100;
+        }
+        #emoji-picker span { cursor: pointer; margin: 3px; display: inline-block; }
+        #emoji-picker span:hover { transform: scale(1.3); }
         .user { color: #00ffff; }
         .system { color: #ffff00; }
         .status { color: #ff6b6b; }
@@ -174,6 +189,7 @@
     <div id="terminal">
         <div id="header">Terminal Chat v3.8 - Sound Notifications | /notify enables visual + audio alerts</div>
         <div id="messages"></div>
+        <div id="emoji-picker"></div>
         <div id="input-line">
             <span id="prompt">guest@chat:~$</span>
             <input type="text" id="input" placeholder="Type message..." autofocus>
@@ -187,6 +203,7 @@
         const messages = document.getElementById('messages');
         const input = document.getElementById('input');
         const prompt = document.getElementById('prompt');
+        const emojiPicker = document.getElementById('emoji-picker');
         
         let username = localStorage.getItem('chat_username') || 'guest';
         let userColor = localStorage.getItem('chat_color') || 'cyan';
@@ -195,6 +212,10 @@
         let authenticated = false;
         let isPageVisible = true;
         let notificationsEnabled = false;
+        let messageReactions = JSON.parse(localStorage.getItem('reactions_' + roomId) || '{}');
+        
+        const emojis = ['😀','😂','😍','🥺','😢','😡','👍','👎','❤️','🔥','🎉','💯','👀','🙏','💀','✨'];
+        emojiPicker.innerHTML = emojis.map(e => `<span onclick="insertEmoji('${e}')">${e}</span>`).join('');
         
         // Set initial username
         prompt.textContent = `${username}@chat:~$`;
@@ -205,9 +226,10 @@
             return id;
         }
         
-        function addMessage(user, text, type = 'user', color = null) {
+        function addMessage(user, text, type = 'user', color = null, time = Date.now()) {
             const msg = document.createElement('div');
             msg.className = `message ${type}`;
+            msg.dataset.time = time;
             
             if (type === 'user' && color) {
                 msg.classList.add(`color-${color}`);
@@ -217,11 +239,57 @@
             const urlRegex = /(https?:\/\/[^\s]+)/g;
             const linkifiedText = text.replace(urlRegex, '<a href="$1" target="_blank" style="color: #88ff88; text-decoration: underline;">$1</a>');
             
-            msg.innerHTML = `<span style="color: #ff6b6b">[${new Date().toLocaleTimeString()}]</span> <span style="color: #4ecdc4">${user}:</span> ${linkifiedText}`;
+            const msgId = 'msg_' + time;
+            const reactions = messageReactions[msgId] || [];
+            const reactionsHtml = reactions.length ? `<span class="reactions">${reactions.join('')}</span>` : '';
+            
+            msg.innerHTML = `<span style="color: #ff6b6b">[${new Date(time).toLocaleTimeString()}]</span> <span style="color: #4ecdc4">${user}:</span> ${linkifiedText}${reactionsHtml}`;
+            msg.onclick = () => showReactionPicker(msgId);
             messages.appendChild(msg);
             messages.scrollTop = messages.scrollHeight;
         }
         
+        function showReactionPicker(msgId) {
+            const quickEmojis = ['👍','❤️','😂','😮','😢','🔥'];
+            const existing = document.getElementById('reaction-picker');
+            if (existing) existing.remove();
+            
+            const picker = document.createElement('div');
+            picker.id = 'reaction-picker';
+            picker.style.cssText = 'position:fixed;bottom:60px;left:10px;background:#111;border:1px solid #00ff00;padding:5px;font-size:20px;z-index:100;';
+            picker.innerHTML = quickEmojis.map(e => `<span style="cursor:pointer;margin:3px">${e}</span>`).join('') + '<span style="cursor:pointer;margin:3px;color:#ff6b6b">✕</span>';
+            picker.onclick = (e) => {
+                if (e.target.tagName === 'SPAN' && e.target.textContent !== '✕') {
+                    addReaction(msgId, e.target.textContent);
+                }
+                picker.remove();
+            };
+            document.body.appendChild(picker);
+        }
+        
+        function addReaction(msgId, emoji) {
+            if (!messageReactions[msgId]) messageReactions[msgId] = [];
+            messageReactions[msgId].push(emoji);
+            localStorage.setItem('reactions_' + roomId, JSON.stringify(messageReactions));
+            // Refresh display
+            const msgEl = document.querySelector(`[data-time="${msgId.replace('msg_','')}"]`);
+            if (msgEl) {
+                let reactSpan = msgEl.querySelector('.reactions');
+                if (!reactSpan) {
+                    reactSpan = document.createElement('span');
+                    reactSpan.className = 'reactions';
+                    msgEl.appendChild(reactSpan);
+                }
+                reactSpan.textContent = messageReactions[msgId].join('');
+            }
+        }
+        
+        function insertEmoji(emoji) {
+            input.value += emoji;
+            document.getElementById('emoji-picker').style.display = 'none';
+            input.focus();
+        }
+
         function sendMessage(user, text, type = 'user') {
             if (connected && authenticated) {
                 socket.emit('send-message', {
@@ -276,12 +344,12 @@
         
         socket.on('load-messages', (roomMessages) => {
             roomMessages.forEach(msg => {
-                addMessage(msg.user, msg.text, msg.type, msg.color);
+                addMessage(msg.user, msg.text, msg.type, msg.color, msg.time);
             });
         });
         
         socket.on('new-message', (message) => {
-            addMessage(message.user, message.text, message.type, message.color);
+            addMessage(message.user, message.text, message.type, message.color, message.time);
             
             // Debug logging
             console.log('New message:', message.user, 'Current user:', username, 'Page visible:', isPageVisible, 'Notifications enabled:', notificationsEnabled);
@@ -372,6 +440,7 @@
                 addMessage('system', 'Commands:', 'system');
                 addMessage('system', '/nick <name> - Change username', 'system');
                 addMessage('system', '/color <color> - Change text color', 'system');
+                addMessage('system', '/emoji - Toggle emoji picker', 'system');
                 addMessage('system', '/password <pass> - Enter room password', 'system');
                 addMessage('system', '/setpass <pass> - Set room password (empty rooms only)', 'system');
                 addMessage('system', '/notify - Enable desktop notifications', 'system');
@@ -379,7 +448,10 @@
                 addMessage('system', '/clear - Clear chat', 'system');
                 addMessage('system', '/delete - Delete all chat messages for everyone', 'system');
                 addMessage('system', '/room - Show room info', 'system');
+                addMessage('system', 'Tap any message to add reaction.', 'system');
                 addMessage('system', 'Colors: green, cyan, yellow, magenta, red, blue, orange, purple', 'system');
+            } else if (text === '/emoji') {
+                emojiPicker.style.display = emojiPicker.style.display === 'block' ? 'none' : 'block';
             } else {
                 sendMessage(username, text);
             }
