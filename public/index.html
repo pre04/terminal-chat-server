@@ -215,7 +215,14 @@
         let messageReactions = JSON.parse(localStorage.getItem('reactions_' + roomId) || '{}');
         
         const emojis = ['😀','😂','😍','🥺','😢','😡','👍','👎','❤️','🔥','🎉','💯','👀','🙏','💀','✨'];
-        emojiPicker.innerHTML = emojis.map(e => `<span onclick="insertEmoji('${e}')">${e}</span>`).join('');
+        emojiPicker.innerHTML = emojis.map(e => `<span>${e}</span>`).join('');
+        emojiPicker.onclick = (e) => {
+            if (e.target.tagName === 'SPAN') {
+                input.value += e.target.textContent;
+                emojiPicker.style.display = 'none';
+                input.focus();
+            }
+        };
         
         // Set initial username
         prompt.textContent = `${username}@chat:~$`;
@@ -284,12 +291,6 @@
             }
         }
         
-        function insertEmoji(emoji) {
-            input.value += emoji;
-            document.getElementById('emoji-picker').style.display = 'none';
-            input.focus();
-        }
-
         function sendMessage(user, text, type = 'user') {
             if (connected && authenticated) {
                 socket.emit('send-message', {
