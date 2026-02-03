@@ -86,30 +86,31 @@ io.on('connection', (socket) => {
     });
     
     socket.on('send-message', (data) => {
-        const { roomId, user, text, type } = data;
-        
+        const { roomId, user, text, type, image } = data;
+
         // Store message
         if (!rooms[roomId]) rooms[roomId] = [];
-        
+
         const message = {
             user,
             text,
             type: type || 'user',
             time: Date.now(),
-            color: data.color || null
+            color: data.color || null,
+            image: image || null
         };
-        
+
         rooms[roomId].push(message);
-        
+
         // Keep only last 100 messages per room (in addition to time-based cleanup)
         if (rooms[roomId].length > 100) {
             rooms[roomId] = rooms[roomId].slice(-100);
         }
-        
+
         // Broadcast to all users in room
         io.to(roomId).emit('new-message', message);
-        
-        console.log(`Message in room ${roomId}: ${user}: ${text}`);
+
+        console.log(`Message in room ${roomId}: ${user}: ${image ? '[IMAGE] ' : ''}${text}`);
     });
     
     socket.on('delete-chat', (data) => {

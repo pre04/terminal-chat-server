@@ -187,17 +187,100 @@
                 padding: 6px;
             }
         }
+
+        /* Image styling */
+        .chat-image {
+            max-width: 300px;
+            max-height: 200px;
+            border: 1px solid #00ff00;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 5px;
+            display: block;
+        }
+        .chat-image:hover {
+            border-color: #88ff88;
+            box-shadow: 0 0 5px rgba(0, 255, 0, 0.3);
+        }
+        #image-btn {
+            background: transparent;
+            border: 1px solid #00ff00;
+            color: #00ff00;
+            font-family: inherit;
+            font-size: 14px;
+            cursor: pointer;
+            padding: 2px 8px;
+            margin-right: 5px;
+            border-radius: 3px;
+        }
+        #image-btn:hover {
+            background: #00ff00;
+            color: #000;
+        }
+        #image-input {
+            display: none;
+        }
+        /* Image modal */
+        #image-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        #image-modal img {
+            max-width: 90%;
+            max-height: 90%;
+            border: 2px solid #00ff00;
+        }
+        #image-modal-close {
+            position: absolute;
+            top: 20px;
+            right: 30px;
+            color: #00ff00;
+            font-size: 30px;
+            cursor: pointer;
+        }
+        #image-modal-close:hover {
+            color: #ff6b6b;
+        }
+        /* Upload progress */
+        .upload-progress {
+            color: #ffff00;
+            font-style: italic;
+        }
+        @media (max-width: 768px) {
+            .chat-image {
+                max-width: 200px;
+                max-height: 150px;
+            }
+            #image-btn {
+                font-size: 12px;
+                padding: 2px 6px;
+            }
+        }
     </style>
 </head>
 <body>
     <div id="terminal">
-        <div id="header">Terminal Chat v3.8 - Sound Notifications | /notify enables visual + audio alerts</div>
+        <div id="header">Terminal Chat v3.9 - Image Support | 📷 to share images | /help for commands</div>
         <div id="messages"></div>
         <div id="emoji-picker"></div>
         <div id="input-line">
+            <button id="image-btn" title="Upload image">📷</button>
+            <input type="file" id="image-input" accept="image/jpeg,image/png,image/gif,image/webp">
             <span id="prompt">guest@chat:~$</span>
             <input type="text" id="input" placeholder="Type message..." autofocus>
             <span class="cursor">_</span>
+        </div>
+        <div id="image-modal">
+            <span id="image-modal-close">&times;</span>
+            <img id="image-modal-img" src="" alt="Full size image">
         </div>
     </div>
 
@@ -208,6 +291,11 @@
         const input = document.getElementById('input');
         const prompt = document.getElementById('prompt');
         const emojiPicker = document.getElementById('emoji-picker');
+        const imageBtn = document.getElementById('image-btn');
+        const imageInput = document.getElementById('image-input');
+        const imageModal = document.getElementById('image-modal');
+        const imageModalImg = document.getElementById('image-modal-img');
+        const imageModalClose = document.getElementById('image-modal-close');
         
         let username = localStorage.getItem('chat_username') || 'guest';
         let userColor = localStorage.getItem('chat_color') || 'cyan';
@@ -237,28 +325,55 @@
             return id;
         }
         
-        function addMessage(user, text, type = 'user', color = null, time = Date.now()) {
+        function addMessage(user, text, type = 'user', color = null, time = Date.now(), image = null) {
             const msg = document.createElement('div');
             msg.className = `message ${type}`;
             msg.dataset.time = time;
-            
+
             if (type === 'user' && color) {
                 msg.classList.add(`color-${color}`);
             }
-            
+
             // Make URLs clickable
             const urlRegex = /(https?:\/\/[^\s]+)/g;
             const linkifiedText = text.replace(urlRegex, '<a href="$1" target="_blank" style="color: #88ff88; text-decoration: underline;">$1</a>');
-            
+
             const msgId = 'msg_' + time;
             const reactions = messageReactions[msgId] || [];
             const reactionsHtml = reactions.length ? `<span class="reactions">${reactions.join('')}</span>` : '';
-            
-            msg.innerHTML = `<span style="color: #ff6b6b">[${new Date(time).toLocaleTimeString()}]</span> <span style="color: #4ecdc4">${user}:</span> ${linkifiedText}${reactionsHtml}`;
-            msg.onclick = () => showReactionPicker(msgId);
+
+            // Build image HTML if present
+            let imageHtml = '';
+            if (image) {
+                imageHtml = `<img class="chat-image" src="${image}" alt="Shared image">`;
+            }
+
+            msg.innerHTML = `<span style="color: #ff6b6b">[${new Date(time).toLocaleTimeString()}]</span> <span style="color: #4ecdc4">${user}:</span> ${linkifiedText}${reactionsHtml}${imageHtml}`;
+            msg.onclick = (e) => {
+                if (e.target.tagName === 'IMG' && e.target.classList.contains('chat-image')) {
+                    openImageModal(e.target.src);
+                } else if (e.target.tagName !== 'IMG') {
+                    showReactionPicker(msgId);
+                }
+            };
             messages.appendChild(msg);
             messages.scrollTop = messages.scrollHeight;
         }
+
+        function openImageModal(src) {
+            imageModalImg.src = src;
+            imageModal.style.display = 'flex';
+        }
+
+        imageModalClose.onclick = () => {
+            imageModal.style.display = 'none';
+        };
+
+        imageModal.onclick = (e) => {
+            if (e.target === imageModal) {
+                imageModal.style.display = 'none';
+            }
+        };
         
         function showReactionPicker(msgId) {
             const quickEmojis = ['👍','❤️','😂','😮','😢','🔥'];
@@ -295,19 +410,58 @@
             }
         }
         
-        function sendMessage(user, text, type = 'user') {
+        function sendMessage(user, text, type = 'user', image = null) {
             if (connected && authenticated) {
                 socket.emit('send-message', {
                     roomId,
                     user,
                     text,
                     type,
-                    color: type === 'user' ? userColor : null
+                    color: type === 'user' ? userColor : null,
+                    image: image
                 });
             } else if (!authenticated) {
                 addMessage('system', 'Please enter room password first', 'system');
             }
         }
+
+        // Image upload handling
+        imageBtn.onclick = () => {
+            imageInput.click();
+        };
+
+        imageInput.onchange = (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            // Validate file type
+            const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+            if (!allowedTypes.includes(file.type)) {
+                addMessage('system', 'Only images are allowed (jpeg, png, gif, webp)', 'system');
+                imageInput.value = '';
+                return;
+            }
+
+            // Validate file size (2MB for base64)
+            if (file.size > 2 * 1024 * 1024) {
+                addMessage('system', 'Image too large. Maximum size is 2MB.', 'system');
+                imageInput.value = '';
+                return;
+            }
+
+            // Convert to base64 and send
+            const reader = new FileReader();
+            reader.onload = () => {
+                sendMessage(username, '', 'user', reader.result);
+            };
+            reader.onerror = () => {
+                addMessage('system', 'Failed to read image file', 'system');
+            };
+            reader.readAsDataURL(file);
+
+            // Reset file input
+            imageInput.value = '';
+        };
         
         function joinRoom(password = '') {
             if (connected) {
@@ -349,12 +503,12 @@
         
         socket.on('load-messages', (roomMessages) => {
             roomMessages.forEach(msg => {
-                addMessage(msg.user, msg.text, msg.type, msg.color, msg.time);
+                addMessage(msg.user, msg.text, msg.type, msg.color, msg.time, msg.image);
             });
         });
-        
+
         socket.on('new-message', (message) => {
-            addMessage(message.user, message.text, message.type, message.color, message.time);
+            addMessage(message.user, message.text, message.type, message.color, message.time, message.image);
             
             // Debug logging
             console.log('New message:', message.user, 'Current user:', username, 'Page visible:', isPageVisible, 'Notifications enabled:', notificationsEnabled);
@@ -456,7 +610,8 @@
                 addMessage('system', '/copy - Copy all chat messages', 'system');
                 addMessage('system', '/clear - Clear chat', 'system');
                 addMessage('system', '/room - Show room info', 'system');
-                addMessage('system', 'Tap any message to add reaction.', 'system');
+                addMessage('system', '📷 button - Upload and share images (max 2MB)', 'system');
+                addMessage('system', 'Tap any message to add reaction. Click images to enlarge.', 'system');
                 addMessage('system', 'Colors: green, cyan, yellow, magenta, red, blue, orange, purple', 'system');
             } else if (text === '/emoji') {
                 emojiPicker.style.display = emojiPicker.style.display === 'block' ? 'none' : 'block';
@@ -715,7 +870,7 @@
         });
         
         // Initial message
-        addMessage('system', 'Commands: /nick, /color, /notify, /copy, /help', 'system');
+        addMessage('system', 'Commands: /nick, /color, /notify, /copy, /help | 📷 to share images', 'system');
     </script>
 </body>
 </html>
