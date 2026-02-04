@@ -280,21 +280,92 @@
                 max-width: 200px;
                 max-height: 150px;
             }
-            #image-btn {
+            #image-btn, #voice-btn {
                 font-size: 12px;
                 padding: 2px 6px;
             }
+        }
+        /* Voice note styling */
+        #voice-btn {
+            background: transparent;
+            border: 1px solid #00ff00;
+            color: #00ff00;
+            font-family: inherit;
+            font-size: 14px;
+            cursor: pointer;
+            padding: 2px 8px;
+            margin-right: 5px;
+            border-radius: 3px;
+            transition: all 0.2s;
+        }
+        #voice-btn:hover {
+            background: #00ff00;
+            color: #000;
+        }
+        #voice-btn.recording {
+            background: #ff6b6b;
+            border-color: #ff6b6b;
+            color: #000;
+            animation: pulse 1s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+        .voice-toggle {
+            display: inline-block;
+            margin-top: 5px;
+            padding: 3px 8px;
+            border: 1px solid #00ff00;
+            border-radius: 4px;
+            color: #00ff00;
+            cursor: pointer;
+            font-size: 12px;
+            background: transparent;
+        }
+        .voice-toggle:hover {
+            background: rgba(0, 255, 0, 0.1);
+            border-color: #88ff88;
+        }
+        .chat-audio {
+            display: none;
+            margin-top: 5px;
+            width: 100%;
+            max-width: 300px;
+            height: 36px;
+        }
+        .chat-audio.expanded {
+            display: block;
+        }
+        /* Style audio element for terminal look */
+        .chat-audio::-webkit-media-controls-panel {
+            background: #111;
+        }
+        .chat-audio::-webkit-media-controls-play-button {
+            filter: invert(48%) sepia(79%) saturate(2476%) hue-rotate(86deg) brightness(118%) contrast(119%);
+        }
+        #recording-indicator {
+            display: none;
+            color: #ff6b6b;
+            font-size: 12px;
+            margin-left: 5px;
+            animation: pulse 1s infinite;
+        }
+        #recording-indicator.active {
+            display: inline;
         }
     </style>
 </head>
 <body>
     <div id="terminal">
-        <div id="header">Terminal Chat v3.9 - Image Support | 📷 to share images | /help for commands</div>
+        <div id="header">Terminal Chat v4.0 - Media Support | 📷 images | 🎤 voice | /help for commands</div>
         <div id="messages"></div>
         <div id="emoji-picker"></div>
         <div id="input-line">
             <button id="image-btn" title="Upload image">📷</button>
             <input type="file" id="image-input" accept="image/jpeg,image/png,image/gif,image/webp">
+            <button id="voice-btn" title="Record voice note (tap to start/stop)">🎤</button>
+            <span id="recording-indicator">REC</span>
             <span id="prompt">guest@chat:~$</span>
             <input type="text" id="input" placeholder="Type message..." autofocus>
             <span class="cursor">_</span>
@@ -317,6 +388,8 @@
         const imageModal = document.getElementById('image-modal');
         const imageModalImg = document.getElementById('image-modal-img');
         const imageModalClose = document.getElementById('image-modal-close');
+        const voiceBtn = document.getElementById('voice-btn');
+        const recordingIndicator = document.getElementById('recording-indicator');
         
         let username = localStorage.getItem('chat_username') || 'guest';
         let userColor = localStorage.getItem('chat_color') || 'cyan';
@@ -326,6 +399,11 @@
         let isPageVisible = true;
         let notificationsEnabled = false;
         let messageReactions = JSON.parse(localStorage.getItem('reactions_' + roomId) || '{}');
+
+        // Voice recording state
+        let mediaRecorder = null;
+        let audioChunks = [];
+        let isRecording = false;
         
         const emojis = ['😀','😂','😍','🥺','😢','😡','👍','👎','❤️','🔥','🎉','💯','👀','🙏','💀','✨'];
         emojiPicker.innerHTML = emojis.map(e => `<span>${e}</span>`).join('');
@@ -346,7 +424,7 @@
             return id;
         }
         
-        function addMessage(user, text, type = 'user', color = null, time = Date.now(), image = null) {
+        function addMessage(user, text, type = 'user', color = null, time = Date.now(), image = null, voice = null) {
             const msg = document.createElement('div');
             msg.className = `message ${type}`;
             msg.dataset.time = time;
@@ -369,15 +447,31 @@
                 imageHtml = `<span class="image-toggle">[Show Image]</span><img class="chat-image" src="${image}" alt="Shared image">`;
             }
 
-            msg.innerHTML = `<span style="color: #ff6b6b">[${new Date(time).toLocaleTimeString()}]</span> <span style="color: #4ecdc4">${user}:</span> ${linkifiedText}${reactionsHtml}${imageHtml}`;
+            // Build voice HTML if present
+            let voiceHtml = '';
+            if (voice) {
+                voiceHtml = `<span class="voice-toggle">[Play Voice Note]</span><audio class="chat-audio" src="${voice}" controls preload="metadata"></audio>`;
+            }
+
+            msg.innerHTML = `<span style="color: #ff6b6b">[${new Date(time).toLocaleTimeString()}]</span> <span style="color: #4ecdc4">${user}:</span> ${linkifiedText}${reactionsHtml}${imageHtml}${voiceHtml}`;
             msg.onclick = (e) => {
                 if (e.target.classList.contains('image-toggle')) {
                     const img = e.target.nextElementSibling;
                     const isExpanded = img.classList.toggle('expanded');
                     e.target.textContent = isExpanded ? '[Hide Image]' : '[Show Image]';
+                } else if (e.target.classList.contains('voice-toggle')) {
+                    const audio = e.target.nextElementSibling;
+                    const isExpanded = audio.classList.toggle('expanded');
+                    e.target.textContent = isExpanded ? '[Hide Voice Note]' : '[Play Voice Note]';
+                    if (isExpanded) {
+                        audio.play();
+                    } else {
+                        audio.pause();
+                        audio.currentTime = 0;
+                    }
                 } else if (e.target.tagName === 'IMG' && e.target.classList.contains('chat-image')) {
                     openImageModal(e.target.src);
-                } else if (e.target.tagName !== 'IMG' && !e.target.classList.contains('image-toggle')) {
+                } else if (e.target.tagName !== 'IMG' && !e.target.classList.contains('image-toggle') && e.target.tagName !== 'AUDIO' && !e.target.classList.contains('voice-toggle')) {
                     showReactionPicker(msgId);
                 }
             };
@@ -435,7 +529,7 @@
             }
         }
         
-        function sendMessage(user, text, type = 'user', image = null) {
+        function sendMessage(user, text, type = 'user', image = null, voice = null) {
             if (connected && authenticated) {
                 socket.emit('send-message', {
                     roomId,
@@ -443,7 +537,8 @@
                     text,
                     type,
                     color: type === 'user' ? userColor : null,
-                    image: image
+                    image: image,
+                    voice: voice
                 });
             } else if (!authenticated) {
                 addMessage('system', 'Please enter room password first', 'system');
@@ -502,7 +597,112 @@
             // Reset file input
             imageInput.value = '';
         };
-        
+
+        // Voice recording handling
+        voiceBtn.onclick = async () => {
+            if (isRecording) {
+                stopRecording();
+            } else {
+                startRecording();
+            }
+        };
+
+        async function startRecording() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+                // Determine best supported format
+                let mimeType = 'audio/webm';
+                if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+                    mimeType = 'audio/webm;codecs=opus';
+                } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
+                    mimeType = 'audio/mp4';
+                } else if (MediaRecorder.isTypeSupported('audio/ogg')) {
+                    mimeType = 'audio/ogg';
+                }
+
+                mediaRecorder = new MediaRecorder(stream, { mimeType });
+                audioChunks = [];
+
+                mediaRecorder.ondataavailable = (e) => {
+                    if (e.data.size > 0) {
+                        audioChunks.push(e.data);
+                    }
+                };
+
+                mediaRecorder.onstop = async () => {
+                    // Stop all tracks
+                    stream.getTracks().forEach(track => track.stop());
+
+                    if (audioChunks.length === 0) {
+                        addMessage('system', 'No audio recorded', 'system');
+                        return;
+                    }
+
+                    const audioBlob = new Blob(audioChunks, { type: mimeType });
+
+                    // Check size (20MB max)
+                    if (audioBlob.size > 20 * 1024 * 1024) {
+                        addMessage('system', 'Voice note too large. Maximum size is 20MB.', 'system');
+                        return;
+                    }
+
+                    // Upload the voice note
+                    addMessage('system', 'Uploading voice note...', 'system');
+
+                    try {
+                        const formData = new FormData();
+                        // Determine file extension from mime type
+                        let ext = '.webm';
+                        if (mimeType.includes('mp4') || mimeType.includes('m4a')) ext = '.m4a';
+                        else if (mimeType.includes('ogg')) ext = '.ogg';
+
+                        formData.append('voice', audioBlob, `voice${ext}`);
+
+                        const response = await fetch('/upload-voice', {
+                            method: 'POST',
+                            body: formData
+                        });
+
+                        if (!response.ok) {
+                            const error = await response.json();
+                            throw new Error(error.error || 'Upload failed');
+                        }
+
+                        const result = await response.json();
+                        sendMessage(username, '', 'user', null, result.url);
+                    } catch (error) {
+                        addMessage('system', `Failed to upload voice note: ${error.message}`, 'system');
+                    }
+                };
+
+                mediaRecorder.start(100); // Collect data every 100ms
+                isRecording = true;
+                voiceBtn.classList.add('recording');
+                recordingIndicator.classList.add('active');
+                addMessage('system', 'Recording... Tap 🎤 again to stop', 'system');
+
+            } catch (error) {
+                console.error('Microphone access error:', error);
+                if (error.name === 'NotAllowedError') {
+                    addMessage('system', 'Microphone access denied. Please allow microphone access in your browser settings.', 'system');
+                } else if (error.name === 'NotFoundError') {
+                    addMessage('system', 'No microphone found. Please connect a microphone.', 'system');
+                } else {
+                    addMessage('system', `Could not access microphone: ${error.message}`, 'system');
+                }
+            }
+        }
+
+        function stopRecording() {
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
+            }
+            isRecording = false;
+            voiceBtn.classList.remove('recording');
+            recordingIndicator.classList.remove('active');
+        }
+
         function joinRoom(password = '') {
             if (connected) {
                 socket.emit('join-room', { roomId, password });
@@ -543,12 +743,12 @@
         
         socket.on('load-messages', (roomMessages) => {
             roomMessages.forEach(msg => {
-                addMessage(msg.user, msg.text, msg.type, msg.color, msg.time, msg.image);
+                addMessage(msg.user, msg.text, msg.type, msg.color, msg.time, msg.image, msg.voice);
             });
         });
 
         socket.on('new-message', (message) => {
-            addMessage(message.user, message.text, message.type, message.color, message.time, message.image);
+            addMessage(message.user, message.text, message.type, message.color, message.time, message.image, message.voice);
             
             // Debug logging
             console.log('New message:', message.user, 'Current user:', username, 'Page visible:', isPageVisible, 'Notifications enabled:', notificationsEnabled);
@@ -651,6 +851,7 @@
                 addMessage('system', '/clear - Clear chat', 'system');
                 addMessage('system', '/room - Show room info', 'system');
                 addMessage('system', '📷 button - Upload and share images (max 50MB)', 'system');
+                addMessage('system', '🎤 button - Record and share voice notes (max 20MB)', 'system');
                 addMessage('system', 'Tap any message to add reaction. Click images to enlarge.', 'system');
                 addMessage('system', 'Colors: green, cyan, yellow, magenta, red, blue, orange, purple', 'system');
             } else if (text === '/emoji') {
@@ -910,7 +1111,7 @@
         });
         
         // Initial message
-        addMessage('system', 'Commands: /nick, /color, /notify, /copy, /help | 📷 to share images', 'system');
+        addMessage('system', 'Commands: /nick, /color, /notify, /copy, /help | 📷 images | 🎤 voice', 'system');
     </script>
 </body>
 </html>

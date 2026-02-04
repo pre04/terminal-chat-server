@@ -42,6 +42,20 @@ const upload = multer({
     }
 });
 
+// Configure multer for voice uploads
+const voiceUpload = multer({
+    storage,
+    limits: { fileSize: 20 * 1024 * 1024 }, // 20MB limit for voice
+    fileFilter: (req, file, cb) => {
+        const allowedTypes = ['audio/webm', 'audio/wav', 'audio/mpeg', 'audio/mp4', 'audio/ogg', 'audio/mp3', 'audio/x-m4a'];
+        if (allowedTypes.includes(file.mimetype)) {
+            cb(null, true);
+        } else {
+            cb(new Error('Only audio files are allowed (webm, wav, mp3, m4a, ogg)'));
+        }
+    }
+});
+
 // Store messages and room passwords in memory
 const rooms = {};
 const roomPasswords = {};
@@ -121,6 +135,17 @@ app.post('/upload', upload.single('image'), (req, res) => {
     res.json({ url: imageUrl });
 });
 
+// Voice upload endpoint
+app.post('/upload-voice', voiceUpload.single('voice'), (req, res) => {
+    if (!req.file) {
+        return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    // Return the URL to the uploaded file
+    const voiceUrl = `/uploads/${req.file.filename}`;
+    res.json({ url: voiceUrl });
+});
+
 // Error handling for multer
 app.use((err, req, res, next) => {
     if (err instanceof multer.MulterError) {
@@ -177,7 +202,7 @@ io.on('connection', (socket) => {
     });
     
     socket.on('send-message', (data) => {
-        const { roomId, user, text, type, image } = data;
+        const { roomId, user, text, type, image, voice } = data;
 
         // Store message
         if (!rooms[roomId]) rooms[roomId] = [];
@@ -188,7 +213,8 @@ io.on('connection', (socket) => {
             type: type || 'user',
             time: Date.now(),
             color: data.color || null,
-            image: image || null
+            image: image || null,
+            voice: voice || null
         };
 
         rooms[roomId].push(message);
@@ -201,7 +227,7 @@ io.on('connection', (socket) => {
         // Broadcast to all users in room
         io.to(roomId).emit('new-message', message);
 
-        console.log(`Message in room ${roomId}: ${user}: ${image ? '[IMAGE] ' : ''}${text}`);
+        console.log(`Message in room ${roomId}: ${user}: ${image ? '[IMAGE] ' : ''}${voice ? '[VOICE] ' : ''}${text}`);
     });
     
     socket.on('delete-chat', (data) => {
