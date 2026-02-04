@@ -455,7 +455,7 @@
             imageInput.click();
         };
 
-        imageInput.onchange = (e) => {
+        imageInput.onchange = async (e) => {
             const file = e.target.files[0];
             if (!file) return;
 
@@ -467,22 +467,37 @@
                 return;
             }
 
-            // Validate file size (30MB max)
-            if (file.size > 30 * 1024 * 1024) {
-                addMessage('system', 'Image too large. Maximum size is 30MB.', 'system');
+            // Validate file size (50MB max)
+            if (file.size > 50 * 1024 * 1024) {
+                addMessage('system', 'Image too large. Maximum size is 50MB.', 'system');
                 imageInput.value = '';
                 return;
             }
 
-            // Convert to base64 and send
-            const reader = new FileReader();
-            reader.onload = () => {
-                sendMessage(username, '', 'user', reader.result);
-            };
-            reader.onerror = () => {
-                addMessage('system', 'Failed to read image file', 'system');
-            };
-            reader.readAsDataURL(file);
+            // Show uploading message
+            addMessage('system', 'Uploading image...', 'system');
+
+            try {
+                // Upload via HTTP POST
+                const formData = new FormData();
+                formData.append('image', file);
+
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Upload failed');
+                }
+
+                const result = await response.json();
+                // Send message with image URL
+                sendMessage(username, '', 'user', result.url);
+            } catch (error) {
+                addMessage('system', `Failed to upload image: ${error.message}`, 'system');
+            }
 
             // Reset file input
             imageInput.value = '';
@@ -635,7 +650,7 @@
                 addMessage('system', '/copy - Copy all chat messages', 'system');
                 addMessage('system', '/clear - Clear chat', 'system');
                 addMessage('system', '/room - Show room info', 'system');
-                addMessage('system', '📷 button - Upload and share images (max 30MB)', 'system');
+                addMessage('system', '📷 button - Upload and share images (max 50MB)', 'system');
                 addMessage('system', 'Tap any message to add reaction. Click images to enlarge.', 'system');
                 addMessage('system', 'Colors: green, cyan, yellow, magenta, red, blue, orange, purple', 'system');
             } else if (text === '/emoji') {
