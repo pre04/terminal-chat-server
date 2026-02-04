@@ -375,19 +375,45 @@
                 padding: 2px 6px;
             }
         }
+        /* Custom tooltips */
+        .tooltip-btn {
+            position: relative;
+        }
+        .tooltip-btn::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #111;
+            color: #00ff00;
+            border: 1px solid #00ff00;
+            padding: 4px 8px;
+            font-size: 11px;
+            white-space: nowrap;
+            border-radius: 3px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.15s;
+            margin-bottom: 5px;
+            z-index: 100;
+        }
+        .tooltip-btn:hover::after {
+            opacity: 1;
+        }
     </style>
 </head>
 <body>
     <div id="terminal">
-        <div id="header">Terminal Chat v4.0 - Media Support | 📷 images | 🎤 voice | /help for commands</div>
+        <div id="header">Terminal Chat v4.0 | /help for commands</div>
         <div id="messages"></div>
         <div id="emoji-picker"></div>
         <div id="input-line">
-            <button id="image-btn" title="Take photo">📷</button>
+            <button id="image-btn" class="tooltip-btn" data-tooltip="Take photo">📷</button>
             <input type="file" id="image-input" accept="image/jpeg,image/png,image/gif,image/webp" capture="environment">
-            <button id="gallery-btn" title="Choose from gallery">🖼️</button>
+            <button id="gallery-btn" class="tooltip-btn" data-tooltip="Choose from gallery">🖼️</button>
             <input type="file" id="gallery-input" accept="image/jpeg,image/png,image/gif,image/webp">
-            <button id="voice-btn" title="Record voice note (tap to start/stop)">🎤</button>
+            <button id="voice-btn" class="tooltip-btn" data-tooltip="Record voice note">🎤</button>
             <span id="recording-indicator">REC</span>
             <span id="prompt">guest@chat:~$</span>
             <input type="text" id="input" placeholder="Type message..." autofocus>
@@ -421,6 +447,7 @@
         let roomId = new URLSearchParams(window.location.search).get('room') || generateRoomId();
         let connected = false;
         let authenticated = false;
+        let pendingPassword = ''; // Track password being attempted
         let isPageVisible = true;
         let notificationsEnabled = false;
         let messageReactions = JSON.parse(localStorage.getItem('reactions_' + roomId) || '{}');
@@ -731,6 +758,7 @@
 
         function joinRoom(password = '') {
             if (connected) {
+                pendingPassword = password;
                 socket.emit('join-room', { roomId, password });
             }
         }
@@ -738,18 +766,26 @@
         // Socket events
         socket.on('connect', () => {
             connected = true;
-            joinRoom(); // Try to join without password first
+            // Try stored password first, otherwise join without password
+            const storedPassword = localStorage.getItem('chat_password_' + roomId) || '';
+            joinRoom(storedPassword);
             addMessage('system', `Connecting to room: ${roomId}`, 'system');
         });
         
         socket.on('auth-success', () => {
             authenticated = true;
+            // Store successful password for auto-reconnect
+            if (pendingPassword) {
+                localStorage.setItem('chat_password_' + roomId, pendingPassword);
+            }
             addMessage('system', `Connected to room: ${roomId}`, 'system');
             addMessage('system', `Share URL: ${window.location.href}`, 'system');
         });
         
         socket.on('auth-failed', (message) => {
             authenticated = false;
+            // Clear stored password since it's wrong
+            localStorage.removeItem('chat_password_' + roomId);
             addMessage('system', `Access denied: ${message}`, 'system');
             addMessage('system', 'Use /password <password> to enter room', 'system');
         });
@@ -876,9 +912,7 @@
                 addMessage('system', '/copy - Copy all chat messages', 'system');
                 addMessage('system', '/clear - Clear chat', 'system');
                 addMessage('system', '/room - Show room info', 'system');
-                addMessage('system', '📷 button - Upload and share images (max 50MB)', 'system');
-                addMessage('system', '🎤 button - Record and share voice notes (max 20MB)', 'system');
-                addMessage('system', 'Tap any message to add reaction. Click images to enlarge.', 'system');
+                addMessage('system', 'Tap any message to add reaction', 'system');
                 addMessage('system', 'Colors: green, cyan, yellow, magenta, red, blue, orange, purple', 'system');
             } else if (text === '/emoji') {
                 emojiPicker.style.display = emojiPicker.style.display === 'block' ? 'none' : 'block';
@@ -1137,7 +1171,7 @@
         });
         
         // Initial message
-        addMessage('system', 'Commands: /nick, /color, /notify, /copy, /help | 📷 images | 🎤 voice', 'system');
+        addMessage('system', 'Commands: /nick, /color, /notify, /copy, /help', 'system');
     </script>
 </body>
 </html>
