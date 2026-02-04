@@ -9,9 +9,14 @@
   },
   "dependencies": {
     "express": "^4.18.2",
+    "multer": "^2.0.2",
     "socket.io": "^4.7.2"
   },
-  "keywords": ["chat", "terminal", "websocket"],
+  "keywords": [
+    "chat",
+    "terminal",
+    "websocket"
+  ],
   "author": "Your Name",
   "license": "MIT"
 }
