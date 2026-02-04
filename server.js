@@ -5,7 +5,9 @@ const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
-const io = socketIo(server);
+const io = socketIo(server, {
+    maxHttpBufferSize: 45e6 // 45MB to support 30MB images after base64 encoding
+});
 
 // Store messages and room passwords in memory
 const rooms = {};

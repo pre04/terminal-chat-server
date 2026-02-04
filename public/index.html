@@ -196,11 +196,32 @@
             border-radius: 4px;
             cursor: pointer;
             margin-top: 5px;
+            display: none;
+        }
+        .chat-image.expanded {
             display: block;
         }
         .chat-image:hover {
             border-color: #88ff88;
             box-shadow: 0 0 5px rgba(0, 255, 0, 0.3);
+        }
+        .image-toggle {
+            display: inline-block;
+            margin-top: 5px;
+            padding: 3px 8px;
+            border: 1px solid #00ff00;
+            border-radius: 4px;
+            color: #00ff00;
+            cursor: pointer;
+            font-size: 12px;
+            background: transparent;
+        }
+        .image-toggle:hover {
+            background: rgba(0, 255, 0, 0.1);
+            border-color: #88ff88;
+        }
+        .image-toggle.hidden {
+            display: none;
         }
         #image-btn {
             background: transparent;
@@ -345,14 +366,18 @@
             // Build image HTML if present
             let imageHtml = '';
             if (image) {
-                imageHtml = `<img class="chat-image" src="${image}" alt="Shared image">`;
+                imageHtml = `<span class="image-toggle">[Show Image]</span><img class="chat-image" src="${image}" alt="Shared image">`;
             }
 
             msg.innerHTML = `<span style="color: #ff6b6b">[${new Date(time).toLocaleTimeString()}]</span> <span style="color: #4ecdc4">${user}:</span> ${linkifiedText}${reactionsHtml}${imageHtml}`;
             msg.onclick = (e) => {
-                if (e.target.tagName === 'IMG' && e.target.classList.contains('chat-image')) {
+                if (e.target.classList.contains('image-toggle')) {
+                    const img = e.target.nextElementSibling;
+                    const isExpanded = img.classList.toggle('expanded');
+                    e.target.textContent = isExpanded ? '[Hide Image]' : '[Show Image]';
+                } else if (e.target.tagName === 'IMG' && e.target.classList.contains('chat-image')) {
                     openImageModal(e.target.src);
-                } else if (e.target.tagName !== 'IMG') {
+                } else if (e.target.tagName !== 'IMG' && !e.target.classList.contains('image-toggle')) {
                     showReactionPicker(msgId);
                 }
             };
@@ -442,9 +467,9 @@
                 return;
             }
 
-            // Validate file size (2MB for base64)
-            if (file.size > 2 * 1024 * 1024) {
-                addMessage('system', 'Image too large. Maximum size is 2MB.', 'system');
+            // Validate file size (30MB max)
+            if (file.size > 30 * 1024 * 1024) {
+                addMessage('system', 'Image too large. Maximum size is 30MB.', 'system');
                 imageInput.value = '';
                 return;
             }
@@ -610,7 +635,7 @@
                 addMessage('system', '/copy - Copy all chat messages', 'system');
                 addMessage('system', '/clear - Clear chat', 'system');
                 addMessage('system', '/room - Show room info', 'system');
-                addMessage('system', '📷 button - Upload and share images (max 2MB)', 'system');
+                addMessage('system', '📷 button - Upload and share images (max 30MB)', 'system');
                 addMessage('system', 'Tap any message to add reaction. Click images to enlarge.', 'system');
                 addMessage('system', 'Colors: green, cyan, yellow, magenta, red, blue, orange, purple', 'system');
             } else if (text === '/emoji') {
