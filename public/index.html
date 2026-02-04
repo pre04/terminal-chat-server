@@ -238,7 +238,7 @@
             background: #00ff00;
             color: #000;
         }
-        #image-input {
+        #image-input, #gallery-input {
             display: none;
         }
         /* Image modal */
@@ -354,6 +354,27 @@
         #recording-indicator.active {
             display: inline;
         }
+        #gallery-btn {
+            background: transparent;
+            border: 1px solid #00ff00;
+            color: #00ff00;
+            font-family: inherit;
+            font-size: 14px;
+            cursor: pointer;
+            padding: 2px 8px;
+            margin-right: 5px;
+            border-radius: 3px;
+        }
+        #gallery-btn:hover {
+            background: #00ff00;
+            color: #000;
+        }
+        @media (max-width: 768px) {
+            #gallery-btn {
+                font-size: 12px;
+                padding: 2px 6px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -362,8 +383,10 @@
         <div id="messages"></div>
         <div id="emoji-picker"></div>
         <div id="input-line">
-            <button id="image-btn" title="Upload image">📷</button>
-            <input type="file" id="image-input" accept="image/jpeg,image/png,image/gif,image/webp">
+            <button id="image-btn" title="Take photo">📷</button>
+            <input type="file" id="image-input" accept="image/jpeg,image/png,image/gif,image/webp" capture="environment">
+            <button id="gallery-btn" title="Choose from gallery">🖼️</button>
+            <input type="file" id="gallery-input" accept="image/jpeg,image/png,image/gif,image/webp">
             <button id="voice-btn" title="Record voice note (tap to start/stop)">🎤</button>
             <span id="recording-indicator">REC</span>
             <span id="prompt">guest@chat:~$</span>
@@ -385,6 +408,8 @@
         const emojiPicker = document.getElementById('emoji-picker');
         const imageBtn = document.getElementById('image-btn');
         const imageInput = document.getElementById('image-input');
+        const galleryBtn = document.getElementById('gallery-btn');
+        const galleryInput = document.getElementById('gallery-input');
         const imageModal = document.getElementById('image-modal');
         const imageModalImg = document.getElementById('image-modal-img');
         const imageModalClose = document.getElementById('image-modal-close');
@@ -546,26 +571,21 @@
         }
 
         // Image upload handling
-        imageBtn.onclick = () => {
-            imageInput.click();
-        };
-
-        imageInput.onchange = async (e) => {
-            const file = e.target.files[0];
+        async function handleImageUpload(file, inputElement) {
             if (!file) return;
 
             // Validate file type
             const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
             if (!allowedTypes.includes(file.type)) {
                 addMessage('system', 'Only images are allowed (jpeg, png, gif, webp)', 'system');
-                imageInput.value = '';
+                inputElement.value = '';
                 return;
             }
 
             // Validate file size (50MB max)
             if (file.size > 50 * 1024 * 1024) {
                 addMessage('system', 'Image too large. Maximum size is 50MB.', 'system');
-                imageInput.value = '';
+                inputElement.value = '';
                 return;
             }
 
@@ -595,8 +615,14 @@
             }
 
             // Reset file input
-            imageInput.value = '';
-        };
+            inputElement.value = '';
+        }
+
+        imageBtn.onclick = () => imageInput.click();
+        galleryBtn.onclick = () => galleryInput.click();
+
+        imageInput.onchange = (e) => handleImageUpload(e.target.files[0], imageInput);
+        galleryInput.onchange = (e) => handleImageUpload(e.target.files[0], galleryInput);
 
         // Voice recording handling
         voiceBtn.onclick = async () => {
