@@ -97,7 +97,7 @@
         }
         #input-line {
             display: flex;
-            align-items: center;
+            align-items: flex-end;
             background: #111;
             padding: 8px;
             border-radius: 4px;
@@ -117,6 +117,12 @@
             outline: none;
             flex: 1;
             min-height: 20px;
+            max-height: 120px;
+            resize: none;
+            overflow-y: auto;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            line-height: 1.4;
         }
         .cursor {
             animation: blink 1s infinite;
@@ -416,8 +422,7 @@
             <button id="voice-btn" class="tooltip-btn" data-tooltip="Record voice note">🎤</button>
             <span id="recording-indicator">REC</span>
             <span id="prompt">guest@chat:~$</span>
-            <input type="text" id="input" placeholder="Type message..." autofocus>
-            <span class="cursor">_</span>
+            <textarea id="input" placeholder="Type message..." autofocus rows="1"></textarea>
         </div>
         <div id="image-modal">
             <span id="image-modal-close">&times;</span>
@@ -842,11 +847,20 @@
             });
         }
         
-        input.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter' && input.value.trim()) {
-                handleMessage(input.value.trim());
-                input.value = '';
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                if (input.value.trim()) {
+                    handleMessage(input.value.trim());
+                    input.value = '';
+                    input.style.height = 'auto';
+                }
             }
+        });
+
+        input.addEventListener('input', () => {
+            input.style.height = 'auto';
+            input.style.height = input.scrollHeight + 'px';
         });
         
         // Add send button for mobile (invisible but functional)
