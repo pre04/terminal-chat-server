@@ -281,8 +281,39 @@
         .attach-option:hover {
             background: rgba(0, 255, 0, 0.15);
         }
-        #image-input, #gallery-input {
+        #image-input, #gallery-input, #video-input, #video-gallery-input {
             display: none;
+        }
+        /* Video styling */
+        .chat-video {
+            max-width: 300px;
+            max-height: 200px;
+            border: 1px solid #00ff00;
+            border-radius: 4px;
+            margin-top: 5px;
+            display: none;
+        }
+        .chat-video.expanded {
+            display: block;
+        }
+        .chat-video:hover {
+            border-color: #88ff88;
+            box-shadow: 0 0 5px rgba(0, 255, 0, 0.3);
+        }
+        .video-toggle {
+            display: inline-block;
+            margin-top: 5px;
+            padding: 3px 8px;
+            border: 1px solid #00ff00;
+            border-radius: 4px;
+            color: #00ff00;
+            cursor: pointer;
+            font-size: 12px;
+            background: transparent;
+        }
+        .video-toggle:hover {
+            background: rgba(0, 255, 0, 0.1);
+            border-color: #88ff88;
         }
         /* Image modal */
         #image-modal {
@@ -319,7 +350,7 @@
             font-style: italic;
         }
         @media (max-width: 768px) {
-            .chat-image {
+            .chat-image, .chat-video {
                 max-width: 200px;
                 max-height: 150px;
             }
@@ -419,11 +450,15 @@
                 <div id="attach-menu">
                     <button id="image-btn" class="attach-option">📷 Take Photo</button>
                     <button id="gallery-btn" class="attach-option">🖼️ Gallery</button>
+                    <button id="video-btn" class="attach-option">🎬 Record Video</button>
+                    <button id="video-gallery-btn" class="attach-option">🎞️ Video Gallery</button>
                     <button id="voice-btn" class="attach-option">🎤 Voice Note</button>
                 </div>
             </div>
             <input type="file" id="image-input" accept="image/jpeg,image/png,image/gif,image/webp" capture="environment">
             <input type="file" id="gallery-input" accept="image/jpeg,image/png,image/gif,image/webp">
+            <input type="file" id="video-input" accept="video/mp4,video/quicktime,video/webm,video/*" capture="environment">
+            <input type="file" id="video-gallery-input" accept="video/mp4,video/quicktime,video/webm,video/*">
             <span id="recording-indicator">REC</span>
             <span id="prompt">guest@chat:~$</span>
             <textarea id="input" placeholder="Type message..." autofocus rows="1"></textarea>
@@ -450,6 +485,10 @@
         const imageModal = document.getElementById('image-modal');
         const imageModalImg = document.getElementById('image-modal-img');
         const imageModalClose = document.getElementById('image-modal-close');
+        const videoBtn = document.getElementById('video-btn');
+        const videoGalleryBtn = document.getElementById('video-gallery-btn');
+        const videoInput = document.getElementById('video-input');
+        const videoGalleryInput = document.getElementById('video-gallery-input');
         const voiceBtn = document.getElementById('voice-btn');
         const recordingIndicator = document.getElementById('recording-indicator');
         
@@ -487,7 +526,7 @@
             return id;
         }
         
-        function addMessage(user, text, type = 'user', color = null, time = Date.now(), image = null, voice = null) {
+        function addMessage(user, text, type = 'user', color = null, time = Date.now(), image = null, voice = null, video = null) {
             const msg = document.createElement('div');
             msg.className = `message ${type}`;
             msg.dataset.time = time;
@@ -516,7 +555,13 @@
                 voiceHtml = `<span class="voice-toggle">[Play Voice Note]</span><audio class="chat-audio" src="${voice}" controls preload="metadata"></audio>`;
             }
 
-            msg.innerHTML = `<span style="color: #ff6b6b">[${new Date(time).toLocaleTimeString()}]</span> <span style="color: #4ecdc4">${user}:</span> ${linkifiedText}${reactionsHtml}${imageHtml}${voiceHtml}`;
+            // Build video HTML if present
+            let videoHtml = '';
+            if (video) {
+                videoHtml = `<span class="video-toggle">[Show Video]</span><video class="chat-video" src="${video}" controls preload="metadata"></video>`;
+            }
+
+            msg.innerHTML = `<span style="color: #ff6b6b">[${new Date(time).toLocaleTimeString()}]</span> <span style="color: #4ecdc4">${user}:</span> ${linkifiedText}${reactionsHtml}${imageHtml}${voiceHtml}${videoHtml}`;
             msg.onclick = (e) => {
                 if (e.target.classList.contains('image-toggle')) {
                     const img = e.target.nextElementSibling;
@@ -532,9 +577,13 @@
                         audio.pause();
                         audio.currentTime = 0;
                     }
+                } else if (e.target.classList.contains('video-toggle')) {
+                    const vid = e.target.nextElementSibling;
+                    const isExpanded = vid.classList.toggle('expanded');
+                    e.target.textContent = isExpanded ? '[Hide Video]' : '[Show Video]';
                 } else if (e.target.tagName === 'IMG' && e.target.classList.contains('chat-image')) {
                     openImageModal(e.target.src);
-                } else if (e.target.tagName !== 'IMG' && !e.target.classList.contains('image-toggle') && e.target.tagName !== 'AUDIO' && !e.target.classList.contains('voice-toggle')) {
+                } else if (e.target.tagName !== 'IMG' && !e.target.classList.contains('image-toggle') && e.target.tagName !== 'AUDIO' && !e.target.classList.contains('voice-toggle') && e.target.tagName !== 'VIDEO' && !e.target.classList.contains('video-toggle')) {
                     showReactionPicker(msgId);
                 }
             };
@@ -592,7 +641,7 @@
             }
         }
         
-        function sendMessage(user, text, type = 'user', image = null, voice = null) {
+        function sendMessage(user, text, type = 'user', image = null, voice = null, video = null) {
             if (connected && authenticated) {
                 socket.emit('send-message', {
                     roomId,
@@ -601,7 +650,8 @@
                     type,
                     color: type === 'user' ? userColor : null,
                     image: image,
-                    voice: voice
+                    voice: voice,
+                    video: video
                 });
             } else if (!authenticated) {
                 addMessage('system', 'Please enter room password first', 'system');
@@ -656,6 +706,51 @@
             inputElement.value = '';
         }
 
+        // Video upload handling
+        async function handleVideoUpload(file, inputElement) {
+            if (!file) return;
+
+            // Validate file type
+            const allowedTypes = ['video/mp4', 'video/webm', 'video/quicktime', 'video/3gpp', 'video/x-matroska'];
+            if (!allowedTypes.includes(file.type)) {
+                addMessage('system', 'Only video files are allowed (mp4, webm, mov, 3gpp, mkv)', 'system');
+                inputElement.value = '';
+                return;
+            }
+
+            // Validate file size (100MB max)
+            if (file.size > 100 * 1024 * 1024) {
+                addMessage('system', 'Video too large. Maximum size is 100MB.', 'system');
+                inputElement.value = '';
+                return;
+            }
+
+            // Show uploading message
+            addMessage('system', 'Uploading video...', 'system');
+
+            try {
+                const formData = new FormData();
+                formData.append('video', file);
+
+                const response = await fetch('/upload-video', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Upload failed');
+                }
+
+                const result = await response.json();
+                sendMessage(username, '', 'user', null, null, result.url);
+            } catch (error) {
+                addMessage('system', `Failed to upload video: ${error.message}`, 'system');
+            }
+
+            inputElement.value = '';
+        }
+
         // Attachment menu toggle
         attachBtn.onclick = (e) => {
             e.stopPropagation();
@@ -672,6 +767,12 @@
 
         imageInput.onchange = (e) => handleImageUpload(e.target.files[0], imageInput);
         galleryInput.onchange = (e) => handleImageUpload(e.target.files[0], galleryInput);
+
+        videoBtn.onclick = () => { attachMenu.classList.remove('open'); videoInput.click(); };
+        videoGalleryBtn.onclick = () => { attachMenu.classList.remove('open'); videoGalleryInput.click(); };
+
+        videoInput.onchange = (e) => handleVideoUpload(e.target.files[0], videoInput);
+        videoGalleryInput.onchange = (e) => handleVideoUpload(e.target.files[0], videoGalleryInput);
 
         // Voice recording handling
         voiceBtn.onclick = async () => {
@@ -828,12 +929,12 @@
         
         socket.on('load-messages', (roomMessages) => {
             roomMessages.forEach(msg => {
-                addMessage(msg.user, msg.text, msg.type, msg.color, msg.time, msg.image, msg.voice);
+                addMessage(msg.user, msg.text, msg.type, msg.color, msg.time, msg.image, msg.voice, msg.video);
             });
         });
 
         socket.on('new-message', (message) => {
-            addMessage(message.user, message.text, message.type, message.color, message.time, message.image, message.voice);
+            addMessage(message.user, message.text, message.type, message.color, message.time, message.image, message.voice, message.video);
             
             // Debug logging
             console.log('New message:', message.user, 'Current user:', username, 'Page visible:', isPageVisible, 'Notifications enabled:', notificationsEnabled);
