@@ -281,7 +281,7 @@
         .attach-option:hover {
             background: rgba(0, 255, 0, 0.15);
         }
-        #image-input, #gallery-input {
+        #image-input, #gallery-input, #video-input {
             display: none;
         }
         /* Image modal */
@@ -455,13 +455,13 @@
                     <button id="voice-btn" class="attach-option">🎤 Voice Note</button>
                 </div>
             </div>
-            <input type="file" id="image-input" accept="image/jpeg,image/png,image/gif,image/webp" capture="environment">
-            <input type="file" id="gallery-input" accept="image/jpeg,image/png,image/gif,image/webp">
-            <input type="file" id="video-input" accept="video/mp4,video/webm,video/quicktime,video/x-matroska,video/ogg,video/3gpp">
             <span id="recording-indicator">REC</span>
             <span id="prompt">guest@chat:~$</span>
             <textarea id="input" placeholder="Type message..." autofocus rows="1"></textarea>
         </div>
+        <input type="file" id="image-input" accept="image/jpeg,image/png,image/gif,image/webp" capture="environment">
+        <input type="file" id="gallery-input" accept="image/jpeg,image/png,image/gif,image/webp">
+        <input type="file" id="video-input" accept="video/mp4,video/webm,video/quicktime,video/x-matroska,video/ogg,video/3gpp">
         <div id="image-modal">
             <span id="image-modal-close">&times;</span>
             <img id="image-modal-img" src="" alt="Full size image">
@@ -738,9 +738,9 @@
                 return;
             }
 
-            // Validate file size (10MB max)
-            if (file.size > 10 * 1024 * 1024) {
-                addMessage('system', 'Video too large. Maximum size is 10MB.', 'system');
+            // Validate file size (50MB max)
+            if (file.size > 50 * 1024 * 1024) {
+                addMessage('system', 'Video too large. Maximum size is 50MB.', 'system');
                 inputElement.value = '';
                 return;
             }
