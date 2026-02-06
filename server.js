@@ -59,7 +59,7 @@ const voiceUpload = multer({
 // Configure multer for video uploads
 const videoUpload = multer({
     storage,
-    limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit for video
+    limits: { fileSize: 50 * 1024 * 1024 }, // 50MB limit for video
     fileFilter: (req, file, cb) => {
         const allowedTypes = ['video/mp4', 'video/webm', 'video/quicktime', 'video/x-msvideo', 'video/avi'];
         if (allowedTypes.includes(file.mimetype)) {

@@ -720,9 +720,9 @@
                 return;
             }
 
-            // Validate file size (10MB max)
-            if (file.size > 10 * 1024 * 1024) {
-                addMessage('system', 'Video too large. Maximum size is 10MB.', 'system');
+            // Validate file size (50MB max)
+            if (file.size > 50 * 1024 * 1024) {
+                addMessage('system', 'Video too large. Maximum size is 50MB.', 'system');
                 videoInput.value = '';
                 return;
             }
