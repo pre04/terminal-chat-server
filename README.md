@@ -8,6 +8,13 @@ A real-time terminal-style chat application with WebSocket support.
 - Unique room URLs for private conversations
 - Username persistence
 - Message history (last 100 messages per room)
+- **Image sharing** - Upload and share images
+- **Voice notes** - Record and send voice messages
+- **Video sharing** - Upload and share videos
+- **GIF support** - Search and send GIFs via GIPHY integration
+- Desktop notifications
+- Custom user colors
+- Room passwords for private rooms
 
 ## Deploy to Replit
 
@@ -39,9 +46,25 @@ Visit `http://localhost:3000`
 ## Commands
 
 - `/nick <name>` - Change username
+- `/color <color>` - Change text color (green, cyan, yellow, magenta, red, blue, orange, purple)
+- `/emoji` - Toggle emoji picker
+- `/password <pass>` - Enter room password
+- `/setpass <pass>` - Set room password (empty rooms only)
+- `/notify` - Enable desktop notifications
+- `/copy` - Copy all chat messages
 - `/clear` - Clear chat display
 - `/room` - Show room info
 - `/help` - Show commands
+
+## Media Attachments
+
+Click the 📎 button to access:
+- **📷 Take Photo** - Capture a photo with your camera
+- **🖼️ Gallery** - Select an image from your device
+- **🎬 Record Video** - Record a video with your camera
+- **🎞️ Video Gallery** - Select a video from your device
+- **🎤 Voice Note** - Record a voice message
+- **🎭 GIF** - Search and send GIFs from GIPHY
 
 ## Technical Details
 
@@ -50,3 +73,4 @@ Visit `http://localhost:3000`
 - **Real-time**: WebSocket connections
 - **Storage**: In-memory (resets on server restart)
 - **Rooms**: URL-based room system
+- **GIF Provider**: GIPHY API
