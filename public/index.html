@@ -437,6 +437,116 @@
         .tooltip-btn:hover::after {
             opacity: 1;
         }
+        /* GIF Modal */
+        #gif-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        #gif-modal.open {
+            display: flex;
+        }
+        #gif-modal-content {
+            background: #111;
+            border: 2px solid #00ff00;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 500px;
+            max-height: 80vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        #gif-modal-header {
+            display: flex;
+            align-items: center;
+            padding: 10px;
+            border-bottom: 1px solid #333;
+            gap: 10px;
+        }
+        #gif-search {
+            flex: 1;
+            background: #000;
+            border: 1px solid #00ff00;
+            color: #00ff00;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            padding: 8px 12px;
+            border-radius: 4px;
+            outline: none;
+        }
+        #gif-search::placeholder {
+            color: #666;
+        }
+        #gif-modal-close {
+            color: #00ff00;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 0 5px;
+        }
+        #gif-modal-close:hover {
+            color: #ff6b6b;
+        }
+        #gif-results {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+            min-height: 200px;
+        }
+        .gif-item {
+            cursor: pointer;
+            border: 1px solid #333;
+            border-radius: 4px;
+            overflow: hidden;
+            aspect-ratio: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #000;
+        }
+        .gif-item:hover {
+            border-color: #00ff00;
+            box-shadow: 0 0 5px rgba(0, 255, 0, 0.3);
+        }
+        .gif-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        #gif-attribution {
+            padding: 8px;
+            text-align: center;
+            color: #666;
+            font-size: 11px;
+            border-top: 1px solid #333;
+        }
+        .gif-loading {
+            grid-column: 1 / -1;
+            text-align: center;
+            color: #ffff00;
+            padding: 20px;
+        }
+        .gif-error {
+            grid-column: 1 / -1;
+            text-align: center;
+            color: #ff6b6b;
+            padding: 20px;
+        }
+        @media (max-width: 480px) {
+            #gif-results {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
     </style>
 </head>
 <body>
@@ -453,6 +563,7 @@
                     <button id="video-btn" class="attach-option">🎬 Record Video</button>
                     <button id="video-gallery-btn" class="attach-option">🎞️ Video Gallery</button>
                     <button id="voice-btn" class="attach-option">🎤 Voice Note</button>
+                    <button id="gif-btn" class="attach-option">🎞️ GIF</button>
                 </div>
             </div>
             <input type="file" id="image-input" accept="image/jpeg,image/png,image/gif,image/webp" capture="environment">
@@ -466,6 +577,17 @@
         <div id="image-modal">
             <span id="image-modal-close">&times;</span>
             <img id="image-modal-img" src="" alt="Full size image">
+        </div>
+        <!-- GIF Picker Modal -->
+        <div id="gif-modal">
+            <div id="gif-modal-content">
+                <div id="gif-modal-header">
+                    <input type="text" id="gif-search" placeholder="Search GIFs...">
+                    <span id="gif-modal-close">&times;</span>
+                </div>
+                <div id="gif-results"></div>
+                <div id="gif-attribution">Powered by GIPHY</div>
+            </div>
         </div>
     </div>
 
@@ -491,6 +613,11 @@
         const videoGalleryInput = document.getElementById('video-gallery-input');
         const voiceBtn = document.getElementById('voice-btn');
         const recordingIndicator = document.getElementById('recording-indicator');
+        const gifBtn = document.getElementById('gif-btn');
+        const gifModal = document.getElementById('gif-modal');
+        const gifSearch = document.getElementById('gif-search');
+        const gifResults = document.getElementById('gif-results');
+        const gifModalClose = document.getElementById('gif-modal-close');
         
         let username = localStorage.getItem('chat_username') || 'guest';
         let userColor = localStorage.getItem('chat_color') || 'cyan';
@@ -880,6 +1007,112 @@
             recordingIndicator.classList.remove('active');
         }
 
+        // GIF picker functionality
+        // Using GIPHY API - free tier (beta key for development)
+        const GIPHY_API_KEY = 'dc6zaTOxFJmzC'; // GIPHY public beta key
+        let gifSearchTimeout = null;
+
+        gifBtn.onclick = () => {
+            attachMenu.classList.remove('open');
+            openGifModal();
+        };
+
+        function openGifModal() {
+            gifModal.classList.add('open');
+            gifSearch.value = '';
+            gifSearch.focus();
+            loadTrendingGifs();
+        }
+
+        function closeGifModal() {
+            gifModal.classList.remove('open');
+            gifResults.innerHTML = '';
+        }
+
+        gifModalClose.onclick = closeGifModal;
+
+        gifModal.onclick = (e) => {
+            if (e.target === gifModal) {
+                closeGifModal();
+            }
+        };
+
+        gifSearch.addEventListener('input', (e) => {
+            clearTimeout(gifSearchTimeout);
+            const query = e.target.value.trim();
+            
+            gifSearchTimeout = setTimeout(() => {
+                if (query) {
+                    searchGifs(query);
+                } else {
+                    loadTrendingGifs();
+                }
+            }, 300);
+        });
+
+        async function loadTrendingGifs() {
+            gifResults.innerHTML = '<div class="gif-loading">Loading trending GIFs...</div>';
+            
+            try {
+                const response = await fetch(`https://api.giphy.com/v1/gifs/trending?api_key=${GIPHY_API_KEY}&limit=20&rating=g`);
+                const data = await response.json();
+                
+                if (data.data && data.data.length > 0) {
+                    displayGifs(data.data);
+                } else {
+                    gifResults.innerHTML = '<div class="gif-error">No GIFs found</div>';
+                }
+            } catch (error) {
+                console.error('Failed to load trending GIFs:', error);
+                gifResults.innerHTML = '<div class="gif-error">Failed to load GIFs. Try again later.</div>';
+            }
+        }
+
+        async function searchGifs(query) {
+            gifResults.innerHTML = '<div class="gif-loading">Searching...</div>';
+            
+            try {
+                const response = await fetch(`https://api.giphy.com/v1/gifs/search?api_key=${GIPHY_API_KEY}&q=${encodeURIComponent(query)}&limit=20&rating=g`);
+                const data = await response.json();
+                
+                if (data.data && data.data.length > 0) {
+                    displayGifs(data.data);
+                } else {
+                    gifResults.innerHTML = '<div class="gif-error">No GIFs found for "' + query + '"</div>';
+                }
+            } catch (error) {
+                console.error('Failed to search GIFs:', error);
+                gifResults.innerHTML = '<div class="gif-error">Search failed. Try again.</div>';
+            }
+        }
+
+        function displayGifs(gifs) {
+            gifResults.innerHTML = '';
+            
+            gifs.forEach(gif => {
+                const item = document.createElement('div');
+                item.className = 'gif-item';
+                
+                // Use fixed_height_small for preview, original for sending
+                const previewUrl = gif.images.fixed_height_small?.url || gif.images.fixed_height?.url;
+                const fullUrl = gif.images.original?.url || gif.images.fixed_height?.url;
+                
+                item.innerHTML = `<img src="${previewUrl}" alt="${gif.title || 'GIF'}" loading="lazy">`;
+                
+                item.onclick = () => {
+                    sendGif(fullUrl, gif.title);
+                    closeGifModal();
+                };
+                
+                gifResults.appendChild(item);
+            });
+        }
+
+        function sendGif(gifUrl, title) {
+            // Send GIF as an image message
+            sendMessage(username, title || 'GIF', 'user', gifUrl);
+        }
+
         function joinRoom(password = '') {
             if (connected) {
                 pendingPassword = password;
@@ -1045,10 +1278,13 @@
                 addMessage('system', '/copy - Copy all chat messages', 'system');
                 addMessage('system', '/clear - Clear chat', 'system');
                 addMessage('system', '/room - Show room info', 'system');
+                addMessage('system', '/gif - Open GIF picker', 'system');
                 addMessage('system', 'Tap any message to add reaction', 'system');
                 addMessage('system', 'Colors: green, cyan, yellow, magenta, red, blue, orange, purple', 'system');
             } else if (text === '/emoji') {
                 emojiPicker.style.display = emojiPicker.style.display === 'block' ? 'none' : 'block';
+            } else if (text === '/gif') {
+                openGifModal();
             } else {
                 sendMessage(username, text);
             }
