@@ -73,6 +73,7 @@ const videoUpload = multer({
 // Store messages and room passwords in memory
 const rooms = {};
 const roomPasswords = {};
+const roomUsers = {}; // roomId -> Map<socketId, { username, color }>
 
 // Auto-cleanup messages older than 12 hours
 const CLEANUP_INTERVAL = 12 * 60 * 60 * 1000; // 12 hours in milliseconds
@@ -184,13 +185,19 @@ app.use((err, req, res, next) => {
     next();
 });
 
+function broadcastUserList(roomId) {
+    if (!roomUsers[roomId]) return;
+    const users = Array.from(roomUsers[roomId].values());
+    io.to(roomId).emit('user-list', users);
+}
+
 // Socket.io connection handling
 io.on('connection', (socket) => {
     console.log('User connected:', socket.id);
     
     socket.on('join-room', (data) => {
-        const { roomId, password } = data;
-        
+        const { roomId, password, username, color } = data;
+
         // Check if room has password
         if (roomPasswords[roomId]) {
             if (password !== roomPasswords[roomId]) {
@@ -198,9 +205,14 @@ io.on('connection', (socket) => {
                 return;
             }
         }
-        
+
         socket.join(roomId);
-        
+        socket.currentRoom = roomId;
+
+        // Track user in room
+        if (!roomUsers[roomId]) roomUsers[roomId] = new Map();
+        roomUsers[roomId].set(socket.id, { username: username || 'guest', color: color || 'cyan' });
+
         // Send existing messages to new user (only messages from last 12 hours)
         if (rooms[roomId]) {
             const now = Date.now();
@@ -208,9 +220,13 @@ io.on('connection', (socket) => {
             const recentMessages = rooms[roomId].filter(msg => msg.time > cutoffTime);
             socket.emit('load-messages', recentMessages);
         }
-        
+
         socket.emit('auth-success');
-        console.log(`User ${socket.id} joined room ${roomId}`);
+
+        // Broadcast updated user list to all users in room
+        broadcastUserList(roomId);
+
+        console.log(`User ${socket.id} (${username || 'guest'}) joined room ${roomId}`);
     });
     
     socket.on('set-password', (data) => {
@@ -269,7 +285,25 @@ io.on('connection', (socket) => {
         io.to(roomId).emit('chat-deleted');
     });
     
+    socket.on('update-user', (data) => {
+        const { username, color } = data;
+        const roomId = socket.currentRoom;
+        if (roomId && roomUsers[roomId] && roomUsers[roomId].has(socket.id)) {
+            roomUsers[roomId].set(socket.id, { username: username || 'guest', color: color || 'cyan' });
+            broadcastUserList(roomId);
+        }
+    });
+
     socket.on('disconnect', () => {
+        const roomId = socket.currentRoom;
+        if (roomId && roomUsers[roomId]) {
+            roomUsers[roomId].delete(socket.id);
+            if (roomUsers[roomId].size === 0) {
+                delete roomUsers[roomId];
+            } else {
+                broadcastUserList(roomId);
+            }
+        }
         console.log('User disconnected:', socket.id);
     });
 });
