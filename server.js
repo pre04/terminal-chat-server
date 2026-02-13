@@ -5,6 +5,7 @@ const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
 const crypto = require('crypto');
+const https = require('https');
 
 const app = express();
 const server = http.createServer(app);
@@ -171,6 +172,76 @@ app.post('/upload-video', videoUpload.single('video'), (req, res) => {
     res.json({ url: videoUrl });
 });
 
+// GIF search proxy endpoint (uses GIPHY API)
+const GIPHY_API_KEY = process.env.GIPHY_API_KEY || 'GlVGYHkr3WSBnllca54iNt0yFbjz7L65'; // Public beta key
+app.get('/api/gifs/search', (req, res) => {
+    const query = req.query.q;
+    const offset = req.query.offset || 0;
+    const limit = req.query.limit || 20;
+
+    if (!query) {
+        return res.status(400).json({ error: 'Search query is required' });
+    }
+
+    const url = `https://api.giphy.com/v1/gifs/search?api_key=${GIPHY_API_KEY}&q=${encodeURIComponent(query)}&limit=${limit}&offset=${offset}&rating=pg-13&lang=en`;
+
+    https.get(url, (apiRes) => {
+        let data = '';
+        apiRes.on('data', chunk => { data += chunk; });
+        apiRes.on('end', () => {
+            try {
+                const parsed = JSON.parse(data);
+                const gifs = (parsed.data || []).map(gif => ({
+                    id: gif.id,
+                    title: gif.title,
+                    url: gif.images.fixed_height.url,
+                    preview: gif.images.fixed_height_small.url || gif.images.preview_gif.url,
+                    width: gif.images.fixed_height.width,
+                    height: gif.images.fixed_height.height
+                }));
+                res.json({ gifs, pagination: parsed.pagination });
+            } catch (e) {
+                res.status(500).json({ error: 'Failed to parse GIPHY response' });
+            }
+        });
+    }).on('error', (err) => {
+        console.error('GIPHY API error:', err);
+        res.status(500).json({ error: 'Failed to fetch GIFs' });
+    });
+});
+
+// GIF trending endpoint
+app.get('/api/gifs/trending', (req, res) => {
+    const offset = req.query.offset || 0;
+    const limit = req.query.limit || 20;
+
+    const url = `https://api.giphy.com/v1/gifs/trending?api_key=${GIPHY_API_KEY}&limit=${limit}&offset=${offset}&rating=pg-13`;
+
+    https.get(url, (apiRes) => {
+        let data = '';
+        apiRes.on('data', chunk => { data += chunk; });
+        apiRes.on('end', () => {
+            try {
+                const parsed = JSON.parse(data);
+                const gifs = (parsed.data || []).map(gif => ({
+                    id: gif.id,
+                    title: gif.title,
+                    url: gif.images.fixed_height.url,
+                    preview: gif.images.fixed_height_small.url || gif.images.preview_gif.url,
+                    width: gif.images.fixed_height.width,
+                    height: gif.images.fixed_height.height
+                }));
+                res.json({ gifs, pagination: parsed.pagination });
+            } catch (e) {
+                res.status(500).json({ error: 'Failed to parse GIPHY response' });
+            }
+        });
+    }).on('error', (err) => {
+        console.error('GIPHY API error:', err);
+        res.status(500).json({ error: 'Failed to fetch GIFs' });
+    });
+});
+
 // Error handling for multer
 app.use((err, req, res, next) => {
     if (err instanceof multer.MulterError) {
@@ -227,7 +298,7 @@ io.on('connection', (socket) => {
     });
     
     socket.on('send-message', (data) => {
-        const { roomId, user, text, type, image, voice, video } = data;
+        const { roomId, user, text, type, image, voice, video, gif } = data;
 
         // Store message
         if (!rooms[roomId]) rooms[roomId] = [];
@@ -240,7 +311,8 @@ io.on('connection', (socket) => {
             color: data.color || null,
             image: image || null,
             voice: voice || null,
-            video: video || null
+            video: video || null,
+            gif: gif || null
         };
 
         rooms[roomId].push(message);
@@ -253,7 +325,7 @@ io.on('connection', (socket) => {
         // Broadcast to all users in room
         io.to(roomId).emit('new-message', message);
 
-        console.log(`Message in room ${roomId}: ${user}: ${image ? '[IMAGE] ' : ''}${voice ? '[VOICE] ' : ''}${video ? '[VIDEO] ' : ''}${text}`);
+        console.log(`Message in room ${roomId}: ${user}: ${image ? '[IMAGE] ' : ''}${voice ? '[VOICE] ' : ''}${video ? '[VIDEO] ' : ''}${gif ? '[GIF] ' : ''}${text}`);
     });
     
     socket.on('delete-chat', (data) => {
