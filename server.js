@@ -187,7 +187,12 @@ app.use((err, req, res, next) => {
 
 function broadcastUserList(roomId) {
     if (!roomUsers[roomId]) return;
-    const users = Array.from(roomUsers[roomId].values());
+    // Deduplicate by username - each nick appears once, online if any socket exists
+    const uniqueUsers = new Map();
+    for (const { username, color } of roomUsers[roomId].values()) {
+        uniqueUsers.set(username, { username, color });
+    }
+    const users = Array.from(uniqueUsers.values());
     io.to(roomId).emit('user-list', users);
 }
 
