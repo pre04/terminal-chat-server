@@ -453,6 +453,16 @@
         }
         .status-dot.online { background: #00ff00; box-shadow: 0 0 4px #00ff00; }
         .status-dot.offline { background: #ff6b6b; box-shadow: 0 0 4px #ff6b6b; }
+        .inline-status-dot {
+            display: inline-block;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            margin-right: 3px;
+            vertical-align: middle;
+        }
+        .inline-status-dot.online { background: #00ff00; box-shadow: 0 0 3px #00ff00; }
+        .inline-status-dot.offline { background: #ff6b6b; box-shadow: 0 0 3px #ff6b6b; }
         #users-btn {
             background: transparent;
             border: 1px solid #00ff00;
@@ -562,6 +572,9 @@
         let notificationsEnabled = false;
         let messageReactions = JSON.parse(localStorage.getItem('reactions_' + roomId) || '{}');
 
+        // Online users tracking
+        let onlineUsers = new Set();
+
         // Voice recording state
         let mediaRecorder = null;
         let audioChunks = [];
@@ -621,7 +634,9 @@
                 videoHtml = `<span class="video-toggle">[Show Video]</span><video class="chat-video" src="${video}" controls preload="metadata"></video>`;
             }
 
-            msg.innerHTML = `<span style="color: #ff6b6b">[${new Date(time).toLocaleTimeString()}]</span> <span style="color: #4ecdc4">${user}:</span> ${linkifiedText}${reactionsHtml}${imageHtml}${voiceHtml}${videoHtml}`;
+            const statusClass = (type === 'user') ? (onlineUsers.has(user) ? 'online' : 'offline') : '';
+            const statusDotHtml = (type === 'user') ? `<span class="inline-status-dot ${statusClass}" data-username="${user}"></span>` : '';
+            msg.innerHTML = `<span style="color: #ff6b6b">[${new Date(time).toLocaleTimeString()}]</span> ${statusDotHtml}<span style="color: #4ecdc4">${user}:</span> ${linkifiedText}${reactionsHtml}${imageHtml}${voiceHtml}${videoHtml}`;
             msg.onclick = (e) => {
                 if (e.target.classList.contains('image-toggle')) {
                     const img = e.target.nextElementSibling;
@@ -1025,6 +1040,14 @@
             usersList.innerHTML = users.map(u =>
                 `<div class="user-entry"><span class="status-dot online"></span><span class="color-${u.color || 'cyan'}">${u.username}</span></div>`
             ).join('');
+
+            // Update online users set and refresh inline status dots
+            onlineUsers = new Set(users.map(u => u.username));
+            document.querySelectorAll('.inline-status-dot').forEach(dot => {
+                const name = dot.dataset.username;
+                dot.classList.toggle('online', onlineUsers.has(name));
+                dot.classList.toggle('offline', !onlineUsers.has(name));
+            });
         });
         
         // Input handling with mobile support
