@@ -8,6 +8,9 @@ A real-time terminal-style chat application with WebSocket support.
 - Unique room URLs for private conversations
 - Username persistence
 - Message history (last 100 messages per room)
+- **GIF Support** - Search and send GIFs via GIPHY integration
+- Image, video, and voice message support
+- Emoji reactions
 
 ## Deploy to Replit
 
@@ -39,9 +42,25 @@ Visit `http://localhost:3000`
 ## Commands
 
 - `/nick <name>` - Change username
+- `/color <color>` - Change text color
+- `/gif` - Open GIF search picker
+- `/emoji` - Toggle emoji picker
 - `/clear` - Clear chat display
 - `/room` - Show room info
+- `/notify` - Enable desktop notifications
+- `/copy` - Copy all chat messages
+- `/users` - Toggle online users panel
+- `/password <pass>` - Enter room password
+- `/setpass <pass>` - Set room password (empty rooms only)
 - `/help` - Show commands
+
+## GIF Support
+
+The chat includes integrated GIF search powered by GIPHY:
+- Click the 📎 attachment button and select "🎭 GIF Search"
+- Or type `/gif` in the chat
+- Search for GIFs or browse trending GIFs
+- Click any GIF to send it to the chat
 
 ## Technical Details
 
@@ -50,3 +69,4 @@ Visit `http://localhost:3000`
 - **Real-time**: WebSocket connections
 - **Storage**: In-memory (resets on server restart)
 - **Rooms**: URL-based room system
+- **GIF API**: GIPHY (public beta key for demo)
