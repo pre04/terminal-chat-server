@@ -284,6 +284,163 @@
         #image-input, #gallery-input, #video-input, #video-gallery-input {
             display: none;
         }
+        /* GIF picker modal */
+        #gif-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            z-index: 1000;
+            flex-direction: column;
+            padding: 10px;
+        }
+        #gif-modal.open {
+            display: flex;
+        }
+        #gif-modal-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+            flex-shrink: 0;
+        }
+        #gif-search {
+            flex: 1;
+            background: #111;
+            border: 1px solid #00ff00;
+            color: #00ff00;
+            font-family: inherit;
+            font-size: 14px;
+            padding: 8px 12px;
+            border-radius: 4px;
+            outline: none;
+        }
+        #gif-search::placeholder {
+            color: #006600;
+        }
+        #gif-search:focus {
+            border-color: #88ff88;
+            box-shadow: 0 0 5px rgba(0, 255, 0, 0.3);
+        }
+        #gif-close-btn {
+            background: transparent;
+            border: 1px solid #ff6b6b;
+            color: #ff6b6b;
+            font-size: 16px;
+            cursor: pointer;
+            padding: 6px 12px;
+            border-radius: 4px;
+        }
+        #gif-close-btn:hover {
+            background: rgba(255, 107, 107, 0.2);
+        }
+        #gif-categories {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+            flex-shrink: 0;
+        }
+        .gif-category-btn {
+            background: #111;
+            border: 1px solid #00ff00;
+            color: #00ff00;
+            font-family: inherit;
+            font-size: 12px;
+            padding: 4px 10px;
+            border-radius: 12px;
+            cursor: pointer;
+        }
+        .gif-category-btn:hover, .gif-category-btn.active {
+            background: rgba(0, 255, 0, 0.2);
+        }
+        #gif-results {
+            flex: 1;
+            overflow-y: auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 8px;
+            align-content: start;
+            -webkit-overflow-scrolling: touch;
+        }
+        .gif-item {
+            cursor: pointer;
+            border: 1px solid #333;
+            border-radius: 4px;
+            overflow: hidden;
+            background: #111;
+            transition: border-color 0.2s, transform 0.2s;
+        }
+        .gif-item:hover {
+            border-color: #00ff00;
+            transform: scale(1.02);
+        }
+        .gif-item img {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+        #gif-loading {
+            text-align: center;
+            color: #ffff00;
+            padding: 20px;
+            grid-column: 1 / -1;
+        }
+        #gif-powered-by {
+            text-align: center;
+            color: #666;
+            font-size: 10px;
+            margin-top: 10px;
+            flex-shrink: 0;
+        }
+        #gif-powered-by img {
+            height: 16px;
+            vertical-align: middle;
+            margin-left: 5px;
+        }
+        /* GIF display in chat */
+        .chat-gif {
+            max-width: 200px;
+            max-height: 150px;
+            border: 1px solid #00ff00;
+            border-radius: 4px;
+            margin-top: 5px;
+            display: none;
+        }
+        .chat-gif.expanded {
+            display: block;
+        }
+        .chat-gif:hover {
+            border-color: #88ff88;
+            box-shadow: 0 0 5px rgba(0, 255, 0, 0.3);
+        }
+        .gif-toggle {
+            display: inline-block;
+            margin-top: 5px;
+            padding: 3px 8px;
+            border: 1px solid #00ff00;
+            border-radius: 4px;
+            color: #00ff00;
+            cursor: pointer;
+            font-size: 12px;
+            background: transparent;
+        }
+        .gif-toggle:hover {
+            background: rgba(0, 255, 0, 0.1);
+            border-color: #88ff88;
+        }
+        @media (max-width: 768px) {
+            #gif-results {
+                grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+            }
+            .chat-gif {
+                max-width: 150px;
+                max-height: 120px;
+            }
+        }
         /* Video styling */
         .chat-video {
             max-width: 300px;
@@ -516,6 +673,7 @@
                 <div id="attach-menu">
                     <button id="image-btn" class="attach-option">📷 Take Photo</button>
                     <button id="gallery-btn" class="attach-option">🖼️ Gallery</button>
+                    <button id="gif-btn" class="attach-option">🎭 GIF</button>
                     <button id="video-btn" class="attach-option">🎬 Record Video</button>
                     <button id="video-gallery-btn" class="attach-option">🎞️ Video Gallery</button>
                     <button id="voice-btn" class="attach-option">🎤 Voice Note</button>
@@ -532,6 +690,22 @@
         <div id="image-modal">
             <span id="image-modal-close">&times;</span>
             <img id="image-modal-img" src="" alt="Full size image">
+        </div>
+        <div id="gif-modal">
+            <div id="gif-modal-header">
+                <input type="text" id="gif-search" placeholder="Search GIFs...">
+                <button id="gif-close-btn">&times;</button>
+            </div>
+            <div id="gif-categories">
+                <button class="gif-category-btn active" data-category="trending">🔥 Trending</button>
+                <button class="gif-category-btn" data-category="reactions">😂 Reactions</button>
+                <button class="gif-category-btn" data-category="love">❤️ Love</button>
+                <button class="gif-category-btn" data-category="happy">😊 Happy</button>
+                <button class="gif-category-btn" data-category="sad">😢 Sad</button>
+                <button class="gif-category-btn" data-category="angry">😡 Angry</button>
+            </div>
+            <div id="gif-results"></div>
+            <div id="gif-powered-by">Powered by <img src="https://giphy.com/static/img/giphy_logo_square_social.png" alt="GIPHY"></div>
         </div>
     </div>
 
@@ -561,6 +735,12 @@
         const usersPanel = document.getElementById('users-panel');
         const usersList = document.getElementById('users-list');
         const usersCount = document.getElementById('users-count');
+        const gifBtn = document.getElementById('gif-btn');
+        const gifModal = document.getElementById('gif-modal');
+        const gifSearch = document.getElementById('gif-search');
+        const gifResults = document.getElementById('gif-results');
+        const gifCloseBtn = document.getElementById('gif-close-btn');
+        const gifCategories = document.getElementById('gif-categories');
         
         let username = localStorage.getItem('chat_username') || 'guest';
         let userColor = localStorage.getItem('chat_color') || 'cyan';
@@ -579,6 +759,11 @@
         let mediaRecorder = null;
         let audioChunks = [];
         let isRecording = false;
+        
+        // GIF picker state
+        const GIPHY_API_KEY = 'GlVGYHkr3WSBnllca54iNt0yFbjz7L65'; // Giphy public beta key
+        let gifSearchTimeout = null;
+        let currentGifCategory = 'trending';
         
         const emojis = ['😀','😂','😍','🥺','😢','😡','👍','👎','❤️','🔥','🎉','💯','👀','🙏','💀','✨'];
         emojiPicker.innerHTML = emojis.map(e => `<span>${e}</span>`).join('');
@@ -599,7 +784,7 @@
             return id;
         }
         
-        function addMessage(user, text, type = 'user', color = null, time = Date.now(), image = null, voice = null, video = null) {
+        function addMessage(user, text, type = 'user', color = null, time = Date.now(), image = null, voice = null, video = null, gif = null) {
             const msg = document.createElement('div');
             msg.className = `message ${type}`;
             msg.dataset.time = time;
@@ -634,9 +819,15 @@
                 videoHtml = `<span class="video-toggle">[Show Video]</span><video class="chat-video" src="${video}" controls preload="metadata"></video>`;
             }
 
+            // Build GIF HTML if present
+            let gifHtml = '';
+            if (gif) {
+                gifHtml = `<span class="gif-toggle">[Show GIF]</span><img class="chat-gif" src="${gif}" alt="GIF">`;
+            }
+
             const statusClass = (type === 'user') ? (onlineUsers.has(user) ? 'online' : 'offline') : '';
             const statusDotHtml = (type === 'user') ? `<span class="inline-status-dot ${statusClass}" data-username="${user}"></span>` : '';
-            msg.innerHTML = `<span style="color: #ff6b6b">[${new Date(time).toLocaleTimeString()}]</span> ${statusDotHtml}<span style="color: #4ecdc4">${user}:</span> ${linkifiedText}${reactionsHtml}${imageHtml}${voiceHtml}${videoHtml}`;
+            msg.innerHTML = `<span style="color: #ff6b6b">[${new Date(time).toLocaleTimeString()}]</span> ${statusDotHtml}<span style="color: #4ecdc4">${user}:</span> ${linkifiedText}${reactionsHtml}${imageHtml}${voiceHtml}${videoHtml}${gifHtml}`;
             msg.onclick = (e) => {
                 if (e.target.classList.contains('image-toggle')) {
                     const img = e.target.nextElementSibling;
@@ -656,9 +847,15 @@
                     const vid = e.target.nextElementSibling;
                     const isExpanded = vid.classList.toggle('expanded');
                     e.target.textContent = isExpanded ? '[Hide Video]' : '[Show Video]';
+                } else if (e.target.classList.contains('gif-toggle')) {
+                    const gifImg = e.target.nextElementSibling;
+                    const isExpanded = gifImg.classList.toggle('expanded');
+                    e.target.textContent = isExpanded ? '[Hide GIF]' : '[Show GIF]';
                 } else if (e.target.tagName === 'IMG' && e.target.classList.contains('chat-image')) {
                     openImageModal(e.target.src);
-                } else if (e.target.tagName !== 'IMG' && !e.target.classList.contains('image-toggle') && e.target.tagName !== 'AUDIO' && !e.target.classList.contains('voice-toggle') && e.target.tagName !== 'VIDEO' && !e.target.classList.contains('video-toggle')) {
+                } else if (e.target.tagName === 'IMG' && e.target.classList.contains('chat-gif')) {
+                    openImageModal(e.target.src);
+                } else if (e.target.tagName !== 'IMG' && !e.target.classList.contains('image-toggle') && e.target.tagName !== 'AUDIO' && !e.target.classList.contains('voice-toggle') && e.target.tagName !== 'VIDEO' && !e.target.classList.contains('video-toggle') && !e.target.classList.contains('gif-toggle')) {
                     showReactionPicker(msgId);
                 }
             };
@@ -716,7 +913,7 @@
             }
         }
         
-        function sendMessage(user, text, type = 'user', image = null, voice = null, video = null) {
+        function sendMessage(user, text, type = 'user', image = null, voice = null, video = null, gif = null) {
             if (connected && authenticated) {
                 socket.emit('send-message', {
                     roomId,
@@ -726,7 +923,8 @@
                     color: type === 'user' ? userColor : null,
                     image: image,
                     voice: voice,
-                    video: video
+                    video: video,
+                    gif: gif
                 });
             } else if (!authenticated) {
                 addMessage('system', 'Please enter room password first', 'system');
@@ -964,6 +1162,126 @@
             recordingIndicator.classList.remove('active');
         }
 
+        // GIF Picker Functions
+        gifBtn.onclick = () => {
+            attachMenu.classList.remove('open');
+            openGifPicker();
+        };
+
+        gifCloseBtn.onclick = () => {
+            closeGifPicker();
+        };
+
+        gifModal.onclick = (e) => {
+            if (e.target === gifModal) {
+                closeGifPicker();
+            }
+        };
+
+        function openGifPicker() {
+            gifModal.classList.add('open');
+            gifSearch.value = '';
+            gifSearch.focus();
+            loadTrendingGifs();
+        }
+
+        function closeGifPicker() {
+            gifModal.classList.remove('open');
+            input.focus();
+        }
+
+        // GIF category buttons
+        gifCategories.onclick = (e) => {
+            if (e.target.classList.contains('gif-category-btn')) {
+                document.querySelectorAll('.gif-category-btn').forEach(btn => btn.classList.remove('active'));
+                e.target.classList.add('active');
+                const category = e.target.dataset.category;
+                currentGifCategory = category;
+                if (category === 'trending') {
+                    loadTrendingGifs();
+                } else {
+                    searchGifs(category);
+                }
+            }
+        };
+
+        // GIF search with debounce
+        gifSearch.oninput = () => {
+            clearTimeout(gifSearchTimeout);
+            const query = gifSearch.value.trim();
+            
+            if (query.length === 0) {
+                loadTrendingGifs();
+                return;
+            }
+            
+            gifSearchTimeout = setTimeout(() => {
+                searchGifs(query);
+            }, 300);
+        };
+
+        async function loadTrendingGifs() {
+            gifResults.innerHTML = '<div id="gif-loading">Loading trending GIFs...</div>';
+            
+            try {
+                const response = await fetch(`https://api.giphy.com/v1/gifs/trending?api_key=${GIPHY_API_KEY}&limit=30&rating=g`);
+                const data = await response.json();
+                
+                if (data.data && data.data.length > 0) {
+                    displayGifs(data.data);
+                } else {
+                    gifResults.innerHTML = '<div id="gif-loading">No GIFs found</div>';
+                }
+            } catch (error) {
+                console.error('Error loading trending GIFs:', error);
+                gifResults.innerHTML = '<div id="gif-loading">Failed to load GIFs. Try again.</div>';
+            }
+        }
+
+        async function searchGifs(query) {
+            gifResults.innerHTML = '<div id="gif-loading">Searching...</div>';
+            
+            try {
+                const response = await fetch(`https://api.giphy.com/v1/gifs/search?api_key=${GIPHY_API_KEY}&q=${encodeURIComponent(query)}&limit=30&rating=g`);
+                const data = await response.json();
+                
+                if (data.data && data.data.length > 0) {
+                    displayGifs(data.data);
+                } else {
+                    gifResults.innerHTML = '<div id="gif-loading">No GIFs found for "' + query + '"</div>';
+                }
+            } catch (error) {
+                console.error('Error searching GIFs:', error);
+                gifResults.innerHTML = '<div id="gif-loading">Search failed. Try again.</div>';
+            }
+        }
+
+        function displayGifs(gifs) {
+            gifResults.innerHTML = '';
+            
+            gifs.forEach(gif => {
+                const item = document.createElement('div');
+                item.className = 'gif-item';
+                
+                // Use fixed_height_small for preview, original for sending
+                const previewUrl = gif.images.fixed_height_small?.url || gif.images.fixed_height?.url || gif.images.original?.url;
+                const fullUrl = gif.images.original?.url || gif.images.fixed_height?.url;
+                
+                item.innerHTML = `<img src="${previewUrl}" alt="${gif.title || 'GIF'}" loading="lazy">`;
+                item.onclick = () => {
+                    sendGif(fullUrl);
+                    closeGifPicker();
+                };
+                
+                gifResults.appendChild(item);
+            });
+        }
+
+        function sendGif(gifUrl) {
+            if (!gifUrl) return;
+            sendMessage(username, '', 'user', null, null, null, gifUrl);
+        }
+
         function joinRoom(password = '') {
             if (connected) {
                 pendingPassword = password;
@@ -1013,12 +1331,12 @@
         
         socket.on('load-messages', (roomMessages) => {
             roomMessages.forEach(msg => {
-                addMessage(msg.user, msg.text, msg.type, msg.color, msg.time, msg.image, msg.voice, msg.video);
+                addMessage(msg.user, msg.text, msg.type, msg.color, msg.time, msg.image, msg.voice, msg.video, msg.gif);
             });
         });
 
         socket.on('new-message', (message) => {
-            addMessage(message.user, message.text, message.type, message.color, message.time, message.image, message.voice, message.video);
+            addMessage(message.user, message.text, message.type, message.color, message.time, message.image, message.voice, message.video, message.gif);
             
             // Debug logging
             console.log('New message:', message.user, 'Current user:', username, 'Page visible:', isPageVisible, 'Notifications enabled:', notificationsEnabled);
