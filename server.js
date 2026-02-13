@@ -243,7 +243,7 @@ io.on('connection', (socket) => {
     });
     
     socket.on('send-message', (data) => {
-        const { roomId, user, text, type, image, voice, video } = data;
+        const { roomId, user, text, type, image, voice, video, gif } = data;
 
         // Store message
         if (!rooms[roomId]) rooms[roomId] = [];
@@ -256,7 +256,8 @@ io.on('connection', (socket) => {
             color: data.color || null,
             image: image || null,
             voice: voice || null,
-            video: video || null
+            video: video || null,
+            gif: gif || null
         };
 
         rooms[roomId].push(message);
@@ -269,7 +270,7 @@ io.on('connection', (socket) => {
         // Broadcast to all users in room
         io.to(roomId).emit('new-message', message);
 
-        console.log(`Message in room ${roomId}: ${user}: ${image ? '[IMAGE] ' : ''}${voice ? '[VOICE] ' : ''}${video ? '[VIDEO] ' : ''}${text}`);
+        console.log(`Message in room ${roomId}: ${user}: ${image ? '[IMAGE] ' : ''}${voice ? '[VOICE] ' : ''}${video ? '[VIDEO] ' : ''}${gif ? '[GIF] ' : ''}${text}`);
     });
     
     socket.on('delete-chat', (data) => {
