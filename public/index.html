@@ -987,6 +987,9 @@
                 localStorage.setItem('chat_password_' + roomId, pendingPassword);
             }
             addMessage('system', `Connected to room: ${roomId}`, 'system');
+            if (username !== 'guest') {
+                addMessage('system', `Nickname restored: ${username}`, 'system');
+            }
             addMessage('system', `Share URL: ${window.location.href}`, 'system');
         });
         
@@ -1100,7 +1103,12 @@
         
         function handleMessage(text) {
             if (text.startsWith('/nick ')) {
-                username = text.substring(6);
+                const newNick = text.substring(6).trim();
+                if (!newNick) {
+                    addMessage('system', 'Usage: /nick <name>', 'system');
+                    return;
+                }
+                username = newNick;
                 localStorage.setItem('chat_username', username);
                 prompt.textContent = `${username}@chat:~$`;
                 socket.emit('update-user', { username, color: userColor });
