@@ -211,6 +211,31 @@
             border-color: #88ff88;
             box-shadow: 0 0 5px rgba(0, 255, 0, 0.3);
         }
+        /* GIF specific styling */
+        .chat-gif {
+            max-width: 300px;
+            max-height: 250px;
+            border: 2px solid #ff00ff;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 5px;
+            display: block;
+        }
+        .chat-gif:hover {
+            border-color: #ff88ff;
+            box-shadow: 0 0 8px rgba(255, 0, 255, 0.5);
+        }
+        .gif-label {
+            display: inline-block;
+            background: #ff00ff;
+            color: #000;
+            font-size: 10px;
+            font-weight: bold;
+            padding: 1px 4px;
+            border-radius: 2px;
+            margin-left: 5px;
+            vertical-align: middle;
+        }
         .image-toggle {
             display: inline-block;
             margin-top: 5px;
@@ -281,7 +306,7 @@
         .attach-option:hover {
             background: rgba(0, 255, 0, 0.15);
         }
-        #image-input, #gallery-input, #video-input, #video-gallery-input {
+        #image-input, #gallery-input, #gif-input, #video-input, #video-gallery-input {
             display: none;
         }
         /* Video styling */
@@ -516,6 +541,7 @@
                 <div id="attach-menu">
                     <button id="image-btn" class="attach-option">📷 Take Photo</button>
                     <button id="gallery-btn" class="attach-option">🖼️ Gallery</button>
+                    <button id="gif-btn" class="attach-option">🎭 GIF</button>
                     <button id="video-btn" class="attach-option">🎬 Record Video</button>
                     <button id="video-gallery-btn" class="attach-option">🎞️ Video Gallery</button>
                     <button id="voice-btn" class="attach-option">🎤 Voice Note</button>
@@ -523,6 +549,7 @@
             </div>
             <input type="file" id="image-input" accept="image/jpeg,image/png,image/gif,image/webp" capture="environment">
             <input type="file" id="gallery-input" accept="image/jpeg,image/png,image/gif,image/webp">
+            <input type="file" id="gif-input" accept="image/gif">
             <input type="file" id="video-input" accept="video/mp4,video/quicktime,video/webm,video/*" capture="environment">
             <input type="file" id="video-gallery-input" accept="video/mp4,video/quicktime,video/webm,video/*">
             <span id="recording-indicator">REC</span>
@@ -548,6 +575,8 @@
         const imageInput = document.getElementById('image-input');
         const galleryBtn = document.getElementById('gallery-btn');
         const galleryInput = document.getElementById('gallery-input');
+        const gifBtn = document.getElementById('gif-btn');
+        const gifInput = document.getElementById('gif-input');
         const imageModal = document.getElementById('image-modal');
         const imageModalImg = document.getElementById('image-modal-img');
         const imageModalClose = document.getElementById('image-modal-close');
@@ -599,7 +628,7 @@
             return id;
         }
         
-        function addMessage(user, text, type = 'user', color = null, time = Date.now(), image = null, voice = null, video = null) {
+        function addMessage(user, text, type = 'user', color = null, time = Date.now(), image = null, voice = null, video = null, isGif = false) {
             const msg = document.createElement('div');
             msg.className = `message ${type}`;
             msg.dataset.time = time;
@@ -619,7 +648,12 @@
             // Build image HTML if present
             let imageHtml = '';
             if (image) {
-                imageHtml = `<span class="image-toggle">[Show Image]</span><img class="chat-image" src="${image}" alt="Shared image">`;
+                if (isGif) {
+                    // GIFs are shown immediately with special styling
+                    imageHtml = `<span class="gif-label">GIF</span><br><img class="chat-gif" src="${image}" alt="Shared GIF">`;
+                } else {
+                    imageHtml = `<span class="image-toggle">[Show Image]</span><img class="chat-image" src="${image}" alt="Shared image">`;
+                }
             }
 
             // Build voice HTML if present
@@ -656,9 +690,9 @@
                     const vid = e.target.nextElementSibling;
                     const isExpanded = vid.classList.toggle('expanded');
                     e.target.textContent = isExpanded ? '[Hide Video]' : '[Show Video]';
-                } else if (e.target.tagName === 'IMG' && e.target.classList.contains('chat-image')) {
+                } else if (e.target.tagName === 'IMG' && (e.target.classList.contains('chat-image') || e.target.classList.contains('chat-gif'))) {
                     openImageModal(e.target.src);
-                } else if (e.target.tagName !== 'IMG' && !e.target.classList.contains('image-toggle') && e.target.tagName !== 'AUDIO' && !e.target.classList.contains('voice-toggle') && e.target.tagName !== 'VIDEO' && !e.target.classList.contains('video-toggle')) {
+                } else if (e.target.tagName !== 'IMG' && !e.target.classList.contains('image-toggle') && e.target.tagName !== 'AUDIO' && !e.target.classList.contains('voice-toggle') && e.target.tagName !== 'VIDEO' && !e.target.classList.contains('video-toggle') && !e.target.classList.contains('gif-label')) {
                     showReactionPicker(msgId);
                 }
             };
@@ -716,7 +750,7 @@
             }
         }
         
-        function sendMessage(user, text, type = 'user', image = null, voice = null, video = null) {
+        function sendMessage(user, text, type = 'user', image = null, voice = null, video = null, isGif = false) {
             if (connected && authenticated) {
                 socket.emit('send-message', {
                     roomId,
@@ -726,7 +760,8 @@
                     color: type === 'user' ? userColor : null,
                     image: image,
                     voice: voice,
-                    video: video
+                    video: video,
+                    isGif: isGif
                 });
             } else if (!authenticated) {
                 addMessage('system', 'Please enter room password first', 'system');
@@ -753,7 +788,8 @@
             }
 
             // Show uploading message
-            addMessage('system', 'Uploading image...', 'system');
+            const isGif = file.type === 'image/gif';
+            addMessage('system', isGif ? 'Uploading GIF...' : 'Uploading image...', 'system');
 
             try {
                 // Upload via HTTP POST
@@ -771,8 +807,8 @@
                 }
 
                 const result = await response.json();
-                // Send message with image URL
-                sendMessage(username, '', 'user', result.url);
+                // Send message with image URL and GIF flag
+                sendMessage(username, '', 'user', result.url, null, null, result.isGif);
             } catch (error) {
                 addMessage('system', `Failed to upload image: ${error.message}`, 'system');
             }
@@ -851,6 +887,9 @@
 
         imageInput.onchange = (e) => handleImageUpload(e.target.files[0], imageInput);
         galleryInput.onchange = (e) => handleImageUpload(e.target.files[0], galleryInput);
+
+        gifBtn.onclick = () => { attachMenu.classList.remove('open'); gifInput.click(); };
+        gifInput.onchange = (e) => handleImageUpload(e.target.files[0], gifInput);
 
         videoBtn.onclick = () => { attachMenu.classList.remove('open'); videoInput.click(); };
         videoGalleryBtn.onclick = () => { attachMenu.classList.remove('open'); videoGalleryInput.click(); };
@@ -1016,12 +1055,12 @@
         
         socket.on('load-messages', (roomMessages) => {
             roomMessages.forEach(msg => {
-                addMessage(msg.user, msg.text, msg.type, msg.color, msg.time, msg.image, msg.voice, msg.video);
+                addMessage(msg.user, msg.text, msg.type, msg.color, msg.time, msg.image, msg.voice, msg.video, msg.isGif);
             });
         });
 
         socket.on('new-message', (message) => {
-            addMessage(message.user, message.text, message.type, message.color, message.time, message.image, message.voice, message.video);
+            addMessage(message.user, message.text, message.type, message.color, message.time, message.image, message.voice, message.video, message.isGif);
             
             // Debug logging
             console.log('New message:', message.user, 'Current user:', username, 'Page visible:', isPageVisible, 'Notifications enabled:', notificationsEnabled);

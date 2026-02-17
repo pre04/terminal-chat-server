@@ -145,9 +145,10 @@ app.post('/upload', upload.single('image'), (req, res) => {
         return res.status(400).json({ error: 'No file uploaded' });
     }
 
-    // Return the URL to the uploaded file
+    // Return the URL to the uploaded file and whether it's a GIF
     const imageUrl = `/uploads/${req.file.filename}`;
-    res.json({ url: imageUrl });
+    const isGif = req.file.mimetype === 'image/gif';
+    res.json({ url: imageUrl, isGif });
 });
 
 // Voice upload endpoint
@@ -248,7 +249,7 @@ io.on('connection', (socket) => {
     });
     
     socket.on('send-message', (data) => {
-        const { roomId, user, text, type, image, voice, video } = data;
+        const { roomId, user, text, type, image, voice, video, isGif } = data;
 
         // Store message
         if (!rooms[roomId]) rooms[roomId] = [];
@@ -261,7 +262,8 @@ io.on('connection', (socket) => {
             color: data.color || null,
             image: image || null,
             voice: voice || null,
-            video: video || null
+            video: video || null,
+            isGif: isGif || false
         };
 
         rooms[roomId].push(message);
@@ -274,7 +276,7 @@ io.on('connection', (socket) => {
         // Broadcast to all users in room
         io.to(roomId).emit('new-message', message);
 
-        console.log(`Message in room ${roomId}: ${user}: ${image ? '[IMAGE] ' : ''}${voice ? '[VOICE] ' : ''}${video ? '[VIDEO] ' : ''}${text}`);
+        console.log(`Message in room ${roomId}: ${user}: ${image ? (isGif ? '[GIF] ' : '[IMAGE] ') : ''}${voice ? '[VOICE] ' : ''}${video ? '[VIDEO] ' : ''}${text}`);
     });
     
     socket.on('delete-chat', (data) => {
