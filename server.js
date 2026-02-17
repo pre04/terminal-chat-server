@@ -274,7 +274,9 @@ io.on('connection', (socket) => {
         // Broadcast to all users in room
         io.to(roomId).emit('new-message', message);
 
-        console.log(`Message in room ${roomId}: ${user}: ${image ? '[IMAGE] ' : ''}${voice ? '[VOICE] ' : ''}${video ? '[VIDEO] ' : ''}${text}`);
+        // Determine if the image is a GIF
+        const isGif = image && image.toLowerCase().endsWith('.gif');
+        console.log(`Message in room ${roomId}: ${user}: ${isGif ? '[GIF] ' : (image ? '[IMAGE] ' : '')}${voice ? '[VOICE] ' : ''}${video ? '[VIDEO] ' : ''}${text}`);
     });
     
     socket.on('delete-chat', (data) => {

@@ -211,6 +211,49 @@
             border-color: #88ff88;
             box-shadow: 0 0 5px rgba(0, 255, 0, 0.3);
         }
+        /* GIF styling - auto-expand with animation indicator */
+        .chat-gif {
+            max-width: 300px;
+            max-height: 200px;
+            border: 1px solid #ff00ff;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 5px;
+            display: none;
+        }
+        .chat-gif.expanded {
+            display: block;
+        }
+        .chat-gif:hover {
+            border-color: #ff88ff;
+            box-shadow: 0 0 8px rgba(255, 0, 255, 0.4);
+        }
+        .gif-toggle {
+            display: inline-block;
+            margin-top: 5px;
+            padding: 3px 8px;
+            border: 1px solid #ff00ff;
+            border-radius: 4px;
+            color: #ff00ff;
+            cursor: pointer;
+            font-size: 12px;
+            background: transparent;
+        }
+        .gif-toggle:hover {
+            background: rgba(255, 0, 255, 0.1);
+            border-color: #ff88ff;
+        }
+        .gif-badge {
+            display: inline-block;
+            background: #ff00ff;
+            color: #000;
+            font-size: 10px;
+            font-weight: bold;
+            padding: 1px 4px;
+            border-radius: 2px;
+            margin-left: 5px;
+            vertical-align: middle;
+        }
         .image-toggle {
             display: inline-block;
             margin-top: 5px;
@@ -350,7 +393,7 @@
             font-style: italic;
         }
         @media (max-width: 768px) {
-            .chat-image, .chat-video {
+            .chat-image, .chat-video, .chat-gif {
                 max-width: 200px;
                 max-height: 150px;
             }
@@ -616,10 +659,15 @@
             const reactions = messageReactions[msgId] || [];
             const reactionsHtml = reactions.length ? `<span class="reactions">${reactions.join('')}</span>` : '';
 
-            // Build image HTML if present
+            // Build image/GIF HTML if present
             let imageHtml = '';
             if (image) {
-                imageHtml = `<span class="image-toggle">[Show Image]</span><img class="chat-image" src="${image}" alt="Shared image">`;
+                const isGif = image.toLowerCase().endsWith('.gif');
+                if (isGif) {
+                    imageHtml = `<span class="gif-badge">GIF</span><span class="gif-toggle">[Show GIF]</span><img class="chat-gif" src="${image}" alt="Shared GIF">`;
+                } else {
+                    imageHtml = `<span class="image-toggle">[Show Image]</span><img class="chat-image" src="${image}" alt="Shared image">`;
+                }
             }
 
             // Build voice HTML if present
@@ -642,6 +690,10 @@
                     const img = e.target.nextElementSibling;
                     const isExpanded = img.classList.toggle('expanded');
                     e.target.textContent = isExpanded ? '[Hide Image]' : '[Show Image]';
+                } else if (e.target.classList.contains('gif-toggle')) {
+                    const img = e.target.nextElementSibling;
+                    const isExpanded = img.classList.toggle('expanded');
+                    e.target.textContent = isExpanded ? '[Hide GIF]' : '[Show GIF]';
                 } else if (e.target.classList.contains('voice-toggle')) {
                     const audio = e.target.nextElementSibling;
                     const isExpanded = audio.classList.toggle('expanded');
@@ -656,9 +708,9 @@
                     const vid = e.target.nextElementSibling;
                     const isExpanded = vid.classList.toggle('expanded');
                     e.target.textContent = isExpanded ? '[Hide Video]' : '[Show Video]';
-                } else if (e.target.tagName === 'IMG' && e.target.classList.contains('chat-image')) {
+                } else if (e.target.tagName === 'IMG' && (e.target.classList.contains('chat-image') || e.target.classList.contains('chat-gif'))) {
                     openImageModal(e.target.src);
-                } else if (e.target.tagName !== 'IMG' && !e.target.classList.contains('image-toggle') && e.target.tagName !== 'AUDIO' && !e.target.classList.contains('voice-toggle') && e.target.tagName !== 'VIDEO' && !e.target.classList.contains('video-toggle')) {
+                } else if (e.target.tagName !== 'IMG' && !e.target.classList.contains('image-toggle') && !e.target.classList.contains('gif-toggle') && !e.target.classList.contains('gif-badge') && e.target.tagName !== 'AUDIO' && !e.target.classList.contains('voice-toggle') && e.target.tagName !== 'VIDEO' && !e.target.classList.contains('video-toggle')) {
                     showReactionPicker(msgId);
                 }
             };
@@ -1156,6 +1208,7 @@
                 addMessage('system', '/clear - Clear chat', 'system');
                 addMessage('system', '/room - Show room info', 'system');
                 addMessage('system', 'Tap any message to add reaction', 'system');
+                addMessage('system', 'Supported media: images (jpeg, png, gif, webp), video, voice', 'system');
                 addMessage('system', 'Colors: green, cyan, yellow, magenta, red, blue, orange, purple', 'system');
             } else if (text === '/users') {
                 usersPanel.classList.toggle('open');
