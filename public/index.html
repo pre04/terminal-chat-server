@@ -499,6 +499,79 @@
         .tooltip-btn:hover::after {
             opacity: 1;
         }
+        /* GIF panel styling */
+        #gif-panel {
+            display: none;
+            position: fixed;
+            bottom: 60px;
+            left: 10px;
+            right: 10px;
+            max-width: 400px;
+            max-height: 350px;
+            background: #111;
+            border: 1px solid #00ff00;
+            border-radius: 4px;
+            z-index: 150;
+            padding: 10px;
+        }
+        #gif-panel.open {
+            display: block;
+        }
+        .gif-panel-header {
+            display: flex;
+            margin-bottom: 10px;
+        }
+        #gif-search {
+            flex: 1;
+            background: #000;
+            border: 1px solid #00ff00;
+            color: #00ff00;
+            font-family: inherit;
+            font-size: 14px;
+            padding: 5px 10px;
+            outline: none;
+        }
+        #gif-close {
+            background: transparent;
+            border: 1px solid #00ff00;
+            color: #00ff00;
+            margin-left: 5px;
+            padding: 5px 10px;
+            cursor: pointer;
+            font-family: inherit;
+        }
+        #gif-close:hover {
+            background: rgba(0, 255, 0, 0.15);
+        }
+        #gif-results {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 5px;
+            max-height: 250px;
+            overflow-y: auto;
+        }
+        #gif-results img {
+            width: 100%;
+            height: 80px;
+            object-fit: cover;
+            cursor: pointer;
+            border: 1px solid #333;
+            border-radius: 2px;
+        }
+        #gif-results img:hover {
+            border-color: #00ff00;
+        }
+        #gif-loading {
+            color: #ffff00;
+            text-align: center;
+            padding: 20px;
+        }
+        #gif-attribution {
+            color: #666;
+            font-size: 10px;
+            text-align: center;
+            margin-top: 8px;
+        }
     </style>
 </head>
 <body>
@@ -519,6 +592,16 @@
                     <button id="video-btn" class="attach-option">🎬 Record Video</button>
                     <button id="video-gallery-btn" class="attach-option">🎞️ Video Gallery</button>
                     <button id="voice-btn" class="attach-option">🎤 Voice Note</button>
+                    <button id="gif-btn" class="attach-option">🎞️ GIF Search</button>
+                </div>
+                <div id="gif-panel">
+                    <div class="gif-panel-header">
+                        <input type="text" id="gif-search" placeholder="Search GIFs...">
+                        <button id="gif-close">x</button>
+                    </div>
+                    <div id="gif-results"></div>
+                    <div id="gif-loading" style="display:none;">Searching...</div>
+                    <div id="gif-attribution">Powered by GIPHY</div>
                 </div>
             </div>
             <input type="file" id="image-input" accept="image/jpeg,image/png,image/gif,image/webp" capture="environment">
@@ -561,6 +644,12 @@
         const usersPanel = document.getElementById('users-panel');
         const usersList = document.getElementById('users-list');
         const usersCount = document.getElementById('users-count');
+        const gifBtn = document.getElementById('gif-btn');
+        const gifPanel = document.getElementById('gif-panel');
+        const gifSearch = document.getElementById('gif-search');
+        const gifResults = document.getElementById('gif-results');
+        const gifLoading = document.getElementById('gif-loading');
+        const gifClose = document.getElementById('gif-close');
         
         let username = localStorage.getItem('chat_username') || 'guest';
         let userColor = localStorage.getItem('chat_color') || 'cyan';
@@ -579,6 +668,65 @@
         let mediaRecorder = null;
         let audioChunks = [];
         let isRecording = false;
+
+        // GIPHY API (using public beta key - for production use your own key)
+        const GIPHY_API_KEY = 'dc6zaTOxFJmzC';
+        let gifSearchTimeout = null;
+
+        async function searchGifs(query) {
+            gifLoading.style.display = 'block';
+            gifResults.innerHTML = '';
+            
+            try {
+                const endpoint = query 
+                    ? `https://api.giphy.com/v1/gifs/search?api_key=${GIPHY_API_KEY}&q=${encodeURIComponent(query)}&limit=18&rating=pg-13`
+                    : `https://api.giphy.com/v1/gifs/trending?api_key=${GIPHY_API_KEY}&limit=18&rating=pg-13`;
+                
+                const response = await fetch(endpoint);
+                const data = await response.json();
+                
+                gifLoading.style.display = 'none';
+                
+                if (data.data && data.data.length > 0) {
+                    data.data.forEach(gif => {
+                        const img = document.createElement('img');
+                        img.src = gif.images.fixed_height_small.url;
+                        img.alt = gif.title;
+                        img.dataset.fullUrl = gif.images.fixed_height.url;
+                        img.onclick = () => selectGif(gif.images.fixed_height.url);
+                        gifResults.appendChild(img);
+                    });
+                } else {
+                    gifResults.innerHTML = '<div style="color:#666;text-align:center;padding:20px;grid-column:1/-1;">No GIFs found</div>';
+                }
+            } catch (error) {
+                gifLoading.style.display = 'none';
+                gifResults.innerHTML = '<div style="color:#ff6b6b;text-align:center;padding:20px;grid-column:1/-1;">Failed to load GIFs</div>';
+                console.error('GIPHY error:', error);
+            }
+        }
+
+        function selectGif(url) {
+            sendMessage(username, '', 'user', url);
+            closeGifPanel();
+        }
+
+        function openGifPanel(searchTerm = '') {
+            gifPanel.classList.add('open');
+            gifSearch.value = searchTerm;
+            if (searchTerm) {
+                searchGifs(searchTerm);
+            } else {
+                searchGifs('');
+            }
+            gifSearch.focus();
+        }
+
+        function closeGifPanel() {
+            gifPanel.classList.remove('open');
+            gifSearch.value = '';
+            gifResults.innerHTML = '';
+        }
         
         const emojis = ['😀','😂','😍','🥺','😢','😡','👍','👎','❤️','🔥','🎉','💯','👀','🙏','💀','✨'];
         emojiPicker.innerHTML = emojis.map(e => `<span>${e}</span>`).join('');
@@ -844,6 +992,9 @@
             if (!e.target.closest('#users-panel') && !e.target.closest('#users-btn')) {
                 usersPanel.classList.remove('open');
             }
+            if (!e.target.closest('#gif-panel') && !e.target.closest('#gif-btn')) {
+                gifPanel.classList.remove('open');
+            }
         });
 
         imageBtn.onclick = () => { attachMenu.classList.remove('open'); imageInput.click(); };
@@ -857,6 +1008,21 @@
 
         videoInput.onchange = (e) => handleVideoUpload(e.target.files[0], videoInput);
         videoGalleryInput.onchange = (e) => handleVideoUpload(e.target.files[0], videoGalleryInput);
+
+        // GIF panel handlers
+        gifBtn.onclick = () => {
+            attachMenu.classList.remove('open');
+            openGifPanel();
+        };
+
+        gifSearch.addEventListener('input', () => {
+            clearTimeout(gifSearchTimeout);
+            gifSearchTimeout = setTimeout(() => {
+                searchGifs(gifSearch.value);
+            }, 300);
+        });
+
+        gifClose.onclick = closeGifPanel;
 
         // Voice recording handling
         voiceBtn.onclick = async () => {
@@ -1148,6 +1314,7 @@
                 addMessage('system', '/nick <name> - Change username', 'system');
                 addMessage('system', '/color <color> - Change text color', 'system');
                 addMessage('system', '/emoji - Toggle emoji picker', 'system');
+                addMessage('system', '/gif [search] - Search and send GIFs', 'system');
                 addMessage('system', '/password <pass> - Enter room password', 'system');
                 addMessage('system', '/setpass <pass> - Set room password (empty rooms only)', 'system');
                 addMessage('system', '/notify - Enable desktop notifications', 'system');
@@ -1161,6 +1328,11 @@
                 usersPanel.classList.toggle('open');
             } else if (text === '/emoji') {
                 emojiPicker.style.display = emojiPicker.style.display === 'block' ? 'none' : 'block';
+            } else if (text.startsWith('/gif ')) {
+                const searchTerm = text.substring(5).trim();
+                openGifPanel(searchTerm);
+            } else if (text === '/gif') {
+                openGifPanel();
             } else {
                 sendMessage(username, text);
             }
