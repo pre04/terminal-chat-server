@@ -669,8 +669,10 @@
         let audioChunks = [];
         let isRecording = false;
 
-        // GIPHY API (using public beta key - for production use your own key)
-        const GIPHY_API_KEY = 'dc6zaTOxFJmzC';
+        // GIPHY API configuration
+        // Get your free API key at: https://developers.giphy.com/dashboard/
+        // Replace the key below with your own, or set window.GIPHY_API_KEY before page load
+        const GIPHY_API_KEY = window.GIPHY_API_KEY || 'GlVGYHkr3WSBnllca54iNt0yFbjz7L65';
         let gifSearchTimeout = null;
 
         async function searchGifs(query) {
@@ -683,6 +685,11 @@
                     : `https://api.giphy.com/v1/gifs/trending?api_key=${GIPHY_API_KEY}&limit=18&rating=pg-13`;
                 
                 const response = await fetch(endpoint);
+                
+                if (!response.ok) {
+                    throw new Error(`API returned ${response.status}`);
+                }
+                
                 const data = await response.json();
                 
                 gifLoading.style.display = 'none';
@@ -701,7 +708,11 @@
                 }
             } catch (error) {
                 gifLoading.style.display = 'none';
-                gifResults.innerHTML = '<div style="color:#ff6b6b;text-align:center;padding:20px;grid-column:1/-1;">Failed to load GIFs</div>';
+                let errorMsg = 'Failed to load GIFs';
+                if (error.message.includes('403') || error.message.includes('401')) {
+                    errorMsg = 'API key invalid. Get a free key at developers.giphy.com';
+                }
+                gifResults.innerHTML = `<div style="color:#ff6b6b;text-align:center;padding:20px;grid-column:1/-1;">${errorMsg}</div>`;
                 console.error('GIPHY error:', error);
             }
         }
