@@ -172,6 +172,66 @@ app.post('/upload-video', videoUpload.single('video'), (req, res) => {
     res.json({ url: videoUrl });
 });
 
+// GIF search proxy (using GIPHY public beta API)
+app.get('/api/gifs', async (req, res) => {
+    try {
+        const query = req.query.q || '';
+        const limit = Math.min(parseInt(req.query.limit) || 20, 50);
+        const apiKey = 'dc6zaTOxFJmzC'; // GIPHY public beta key
+        
+        let url;
+        if (query) {
+            url = `https://api.giphy.com/v1/gifs/search?api_key=${apiKey}&q=${encodeURIComponent(query)}&limit=${limit}&rating=g`;
+        } else {
+            url = `https://api.giphy.com/v1/gifs/trending?api_key=${apiKey}&limit=${limit}&rating=g`;
+        }
+        
+        const response = await fetch(url);
+        const data = await response.json();
+        
+        const gifs = data.data.map(gif => ({
+            id: gif.id,
+            title: gif.title,
+            url: gif.images.fixed_height.url,
+            preview: gif.images.fixed_height_small.url || gif.images.fixed_height.url,
+            width: gif.images.fixed_height.width,
+            height: gif.images.fixed_height.height,
+            original: gif.images.original.url
+        }));
+        
+        res.json({ gifs });
+    } catch (error) {
+        console.error('GIF search error:', error);
+        res.status(500).json({ error: 'Failed to search GIFs' });
+    }
+});
+
+app.get('/api/gifs/trending', async (req, res) => {
+    try {
+        const limit = Math.min(parseInt(req.query.limit) || 20, 50);
+        const apiKey = 'dc6zaTOxFJmzC';
+        const url = `https://api.giphy.com/v1/gifs/trending?api_key=${apiKey}&limit=${limit}&rating=g`;
+        
+        const response = await fetch(url);
+        const data = await response.json();
+        
+        const gifs = data.data.map(gif => ({
+            id: gif.id,
+            title: gif.title,
+            url: gif.images.fixed_height.url,
+            preview: gif.images.fixed_height_small.url || gif.images.fixed_height.url,
+            width: gif.images.fixed_height.width,
+            height: gif.images.fixed_height.height,
+            original: gif.images.original.url
+        }));
+        
+        res.json({ gifs });
+    } catch (error) {
+        console.error('GIF trending error:', error);
+        res.status(500).json({ error: 'Failed to fetch trending GIFs' });
+    }
+});
+
 // Error handling for multer
 app.use((err, req, res, next) => {
     if (err instanceof multer.MulterError) {

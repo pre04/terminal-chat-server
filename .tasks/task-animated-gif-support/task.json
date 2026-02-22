@@ -1,0 +1,6 @@
+{
+  "task_id": "task-animated-gif-support",
+  "task_description": "Add comprehensive animated GIF support to the terminal chat application. Users should be able to search for and send animated GIFs from GIPHY via a /gif command and a GIF picker UI, and GIF URLs should auto-render inline in chat messages.",
+  "status": "in_progress",
+  "feature_order": ["FEAT-001", "FEAT-002"]
+}

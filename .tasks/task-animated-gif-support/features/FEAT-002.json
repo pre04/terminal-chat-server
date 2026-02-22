@@ -1,0 +1,38 @@
+{
+  "id": "FEAT-002",
+  "type": "feat",
+  "description": "Add comprehensive animated GIF support to the chat application. This includes: (1) a /gif <search> command that uses the GIPHY public API to search for and send animated GIFs, (2) a GIF button in the attachment menu for browsing/searching GIFs via a UI picker, (3) auto-detection and inline rendering of GIF URLs pasted in messages, and (4) ensuring uploaded GIF files (via existing image upload) animate properly in chat.",
+  "status": "in_progress",
+  "steps": [
+    "STEP 1 - Backend: Add a GIF search proxy endpoint in server.js. Add `const fetch = require('node-fetch');` (or use Node's built-in fetch if available, otherwise install node-fetch). Add route `GET /api/gifs?q=<query>&limit=<n>` that proxies requests to the GIPHY public beta API (api.giphy.com/v1/gifs/search with the public beta key 'dc6zaTOxFJmzC' or trending endpoint). Also add `GET /api/gifs/trending?limit=<n>` for trending GIFs. This keeps the API key server-side and provides a clean interface for the frontend.",
+    "STEP 2 - Frontend CSS: Add styles in the <style> block of public/index.html for the GIF picker overlay/modal. Add classes: `.gif-picker` (fixed position overlay similar to emoji-picker but larger, dark background, border), `.gif-search-input` (input field styled to match terminal theme), `.gif-results` (grid container for GIF thumbnails), `.gif-result-item` (individual GIF thumbnail with hover effect), `.gif-loading` (loading indicator). Also add `.chat-gif` class for inline GIF display in messages (similar to .chat-image but always visible/expanded by default since GIFs are meant to be seen, with appropriate max-width/max-height).",
+    "STEP 3 - Frontend: Add GIF picker HTML elements in public/index.html. Add a GIF picker div (similar structure to emoji-picker) with: a search input, a results grid container, and a close button. Add it near the emoji-picker div. Add a '🎭 Send GIF' option button in the #attach-menu dropdown (after the voice note option), with id 'gif-btn'. Add a hidden div with id 'gif-picker' for the picker UI.",
+    "STEP 4 - Frontend JS: Implement the GIF picker logic in the <script> block. (a) Add reference to the gif-btn and gif-picker elements. (b) Wire gif-btn click to toggle the gif-picker open/closed and load trending GIFs on first open. (c) Implement `async function searchGifs(query)` that calls `/api/gifs?q=<query>&limit=20` (or `/api/gifs/trending?limit=20` if query is empty), parses the JSON response, and renders the results as clickable GIF preview images in the gif-results container. (d) Implement GIF selection: clicking a GIF preview calls sendMessage(username, gifUrl, 'user', gifUrl) where gifUrl is the GIPHY fixed-height URL, sending it as an image attachment. Close the picker after selection. (e) Add debounced search on the search input (300ms debounce). (f) Wire the close button to hide the picker.",
+    "STEP 5 - Frontend JS: Implement the /gif <search> chat command. In the handleMessage() function, add a case for text starting with '/gif '. Extract the search query, call the /api/gifs endpoint, take the first result, and send it as a message with the GIF URL as the image field. If no results found, show a system message. Also add '/gif' to the /help command output.",
+    "STEP 6 - Frontend JS: Enhance the addMessage() function to handle GIF URLs. (a) Detect if an image URL ends with .gif or comes from giphy.com/tenor.com domains. (b) For GIF images, render them with the .chat-gif class (always visible, no toggle needed) instead of the regular .chat-image toggle pattern, so animated GIFs are immediately visible in chat. (c) Ensure clicking a GIF opens it in the existing image modal at full size. (d) For regular text messages, auto-detect GIF URLs (URLs ending in .gif or from giphy/tenor) and render them inline as animated images.",
+    "STEP 7 - Frontend: Update the /help command output in handleMessage() to include '/gif <search> - Search and send animated GIF'.",
+    "STEP 8 - Build verification: Run npm install (in case node-fetch was added), then npm start to verify the server starts correctly with the new endpoint."
+  ],
+  "acceptance_criteria": [
+    "Server has GET /api/gifs?q=<query> and GET /api/gifs/trending endpoints that return GIF data",
+    "Attachment menu (📎) has a new '🎭 Send GIF' option that opens a GIF picker",
+    "GIF picker shows trending GIFs on open and supports search with results displayed as clickable thumbnails",
+    "Selecting a GIF from the picker sends it as a chat message and displays it inline (animated) in the chat",
+    "/gif <search> command searches for GIFs and sends the top result inline in chat",
+    "GIF URLs (*.gif, giphy.com, tenor.com) in messages auto-render as inline animated images",
+    "Uploaded GIF files via the existing image upload show as animated (not static) in chat",
+    "/help output includes the /gif command",
+    "npm install and npm start complete successfully with the changes"
+  ],
+  "verification": [
+    "Run `cd /projects/sandbox/terminal-chat-server && npm install` and confirm it succeeds",
+    "Run `npm start` in background and confirm 'Server running on port 3000'",
+    "Run `curl -s 'http://localhost:3000/api/gifs/trending?limit=2' | head -c 500` and confirm it returns JSON with GIF data",
+    "Run `curl -s 'http://localhost:3000/api/gifs?q=cat&limit=2' | head -c 500` and confirm it returns JSON with GIF search results",
+    "Verify the /gif command is present in handleMessage() in public/index.html",
+    "Verify the GIF picker HTML, CSS, and JS are present in public/index.html",
+    "Verify the gif-btn is added to the attach-menu in public/index.html",
+    "Verify /help output includes /gif command"
+  ],
+  "findings": ""
+}

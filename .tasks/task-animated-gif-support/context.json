@@ -1,0 +1,27 @@
+{
+  "project_type": "Real-time terminal-style chat app with Node.js backend and vanilla HTML/CSS/JS frontend",
+  "language": "JavaScript (Node.js + browser)",
+  "build_system": "npm - no build step, just npm install and npm start",
+  "test_framework": "No test framework configured; no existing tests",
+  "build_command": "npm install",
+  "test_command": "npm start (manual verification - no automated tests)",
+  "verification_instructions": "1. Run `cd /projects/sandbox/terminal-chat-server && npm install` 2. Run `npm start` in background 3. Verify server starts on port 3000 4. Check that the /gif command and GIF rendering code is present in public/index.html and server.js",
+  "snapshot_or_generated_files": null,
+  "setup_instructions": "cd /projects/sandbox/terminal-chat-server && npm install && npm start",
+  "environment_constraints": "No external API keys available. Use a free, no-auth GIF API or embed GIF search via public APIs. No Docker daemon. No browser for manual UI testing - verify via server startup and code inspection.",
+  "contribution_requirements": "Follow README: npm install, npm start. Files: server.js (backend), public/index.html (frontend, single-file with inline CSS/JS)",
+  "key_patterns": {
+    "server_file_uploads": "multer handles uploads in server.js with disk storage to /uploads. Separate upload endpoints per media type (/upload for images, /upload-voice for audio, /upload-video for video). File types validated by MIME type.",
+    "frontend_message_rendering": "addMessage() function in public/index.html builds DOM elements. Images use toggle pattern: clickable '[Show Image]' span that reveals hidden <img> with .expanded class. Same pattern for voice/video.",
+    "chat_commands": "handleMessage() in public/index.html processes /commands (e.g., /nick, /color, /help, /clear). Commands are client-side processed.",
+    "socket_message_schema": "Messages sent via socket.emit('send-message', { roomId, user, text, type, color, image, voice, video }). Server stores and broadcasts with these fields.",
+    "attachment_menu": "Attach button (📎) shows a dropdown menu with options for camera, gallery, video, voice. Each option triggers a hidden file input or recording flow.",
+    "css_styling": "Terminal green-on-black theme. All CSS is inline in <style> tag in index.html. Image styling uses .chat-image class with max-width/max-height constraints."
+  },
+  "relevant_files": [
+    "server.js - Backend: Express routes, multer upload config, Socket.io message handling",
+    "public/index.html - Frontend: All HTML, CSS, and JS in a single file. ~1423 lines.",
+    "package.json - Dependencies: express, multer, socket.io"
+  ],
+  "directory_structure": "/ - project root with server.js, package.json, package-lock.json, README.md, .gitignore; /public/ - static frontend with index.html; /uploads/ - runtime directory for uploaded files (gitignored)"
+}
