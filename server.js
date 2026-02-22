@@ -359,9 +359,28 @@ io.on('connection', (socket) => {
         }
     });
 
+    socket.on('typing-start', (data) => {
+        const { roomId, username } = data;
+        if (roomId && username) {
+            socket.to(roomId).emit('user-typing', { username });
+        }
+    });
+
+    socket.on('typing-stop', (data) => {
+        const { roomId, username } = data;
+        if (roomId && username) {
+            socket.to(roomId).emit('user-stopped-typing', { username });
+        }
+    });
+
     socket.on('disconnect', () => {
         const roomId = socket.currentRoom;
         if (roomId && roomUsers[roomId]) {
+            // Notify others that this user stopped typing on disconnect
+            const userData = roomUsers[roomId].get(socket.id);
+            if (userData) {
+                socket.to(roomId).emit('user-stopped-typing', { username: userData.username });
+            }
             roomUsers[roomId].delete(socket.id);
             if (roomUsers[roomId].size === 0) {
                 delete roomUsers[roomId];

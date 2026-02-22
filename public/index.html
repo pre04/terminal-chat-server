@@ -606,6 +606,25 @@
                 right: 5px;
             }
         }
+        /* Typing indicator */
+        #typing-indicator {
+            min-height: 18px;
+            font-size: 12px;
+            color: #555;
+            font-style: italic;
+            margin-bottom: 4px;
+            padding: 0 2px;
+        }
+        #typing-indicator .typing-dots::after {
+            content: '';
+            animation: typingDots 1.2s infinite;
+        }
+        @keyframes typingDots {
+            0%   { content: ''; }
+            33%  { content: '.'; }
+            66%  { content: '..'; }
+            100% { content: '...'; }
+        }
     </style>
 </head>
 <body>
@@ -627,6 +646,7 @@
                 <div id="gif-loading">Loading trending GIFs...</div>
             </div>
         </div>
+        <div id="typing-indicator"></div>
         <div id="input-line">
             <div id="attach-wrapper">
                 <button id="attach-btn" class="tooltip-btn" data-tooltip="Attach media">📎</button>
@@ -685,6 +705,8 @@
         const gifResults = document.getElementById('gif-results');
         const gifPickerClose = document.getElementById('gif-picker-close');
         
+        const typingIndicator = document.getElementById('typing-indicator');
+
         let username = localStorage.getItem('chat_username') || 'guest';
         let userColor = localStorage.getItem('chat_color') || 'cyan';
         let roomId = new URLSearchParams(window.location.search).get('room') || generateRoomId();
@@ -694,6 +716,11 @@
         let isPageVisible = true;
         let notificationsEnabled = false;
         let messageReactions = JSON.parse(localStorage.getItem('reactions_' + roomId) || '{}');
+
+        // Typing indicator state
+        let isTyping = false;
+        let typingTimeout = null;
+        const typingUsers = new Set();
 
         // Online users tracking
         let onlineUsers = new Set();
@@ -854,7 +881,42 @@
             }
         }
         
+        function updateTypingIndicator() {
+            if (typingUsers.size === 0) {
+                typingIndicator.innerHTML = '';
+                return;
+            }
+            const names = Array.from(typingUsers);
+            let text;
+            if (names.length === 1) {
+                text = `${names[0]} is typing`;
+            } else if (names.length === 2) {
+                text = `${names[0]} and ${names[1]} are typing`;
+            } else {
+                const others = names.length - 1;
+                text = `${names[0]} and ${others} other${others > 1 ? 's' : ''} are typing`;
+            }
+            typingIndicator.innerHTML = `<span>${text}</span><span class="typing-dots"></span>`;
+        }
+
+        function emitTypingStart() {
+            if (!isTyping && connected && authenticated) {
+                isTyping = true;
+                socket.emit('typing-start', { roomId, username });
+            }
+        }
+
+        function emitTypingStop() {
+            if (isTyping) {
+                isTyping = false;
+                socket.emit('typing-stop', { roomId, username });
+            }
+            clearTimeout(typingTimeout);
+            typingTimeout = null;
+        }
+
         function sendMessage(user, text, type = 'user', image = null, voice = null, video = null) {
+            emitTypingStop();
             if (connected && authenticated) {
                 socket.emit('send-message', {
                     roomId,
@@ -1246,6 +1308,16 @@
                 dot.classList.toggle('offline', !onlineUsers.has(name));
             });
         });
+
+        socket.on('user-typing', (data) => {
+            typingUsers.add(data.username);
+            updateTypingIndicator();
+        });
+
+        socket.on('user-stopped-typing', (data) => {
+            typingUsers.delete(data.username);
+            updateTypingIndicator();
+        });
         
         // Input handling with mobile support
         input.addEventListener('focus', () => {
@@ -1276,6 +1348,15 @@
         input.addEventListener('input', () => {
             input.style.height = 'auto';
             input.style.height = input.scrollHeight + 'px';
+
+            // Typing indicator: emit start, then reset stop timer
+            if (input.value.trim()) {
+                emitTypingStart();
+                clearTimeout(typingTimeout);
+                typingTimeout = setTimeout(emitTypingStop, 3000);
+            } else {
+                emitTypingStop();
+            }
         });
         
         // Add send button for mobile (invisible but functional)
