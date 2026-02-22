@@ -610,20 +610,21 @@
         #typing-indicator {
             min-height: 18px;
             font-size: 12px;
-            color: #555;
+            color: #888;
             font-style: italic;
             margin-bottom: 4px;
             padding: 0 2px;
         }
-        #typing-indicator .typing-dots::after {
-            content: '';
-            animation: typingDots 1.2s infinite;
+        .typing-dot {
+            display: inline-block;
+            animation: typingDotFade 1.2s infinite;
+            opacity: 0;
         }
-        @keyframes typingDots {
-            0%   { content: ''; }
-            33%  { content: '.'; }
-            66%  { content: '..'; }
-            100% { content: '...'; }
+        .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes typingDotFade {
+            0%, 60%, 100% { opacity: 0; }
+            30% { opacity: 1; }
         }
     </style>
 </head>
@@ -896,7 +897,7 @@
                 const others = names.length - 1;
                 text = `${names[0]} and ${others} other${others > 1 ? 's' : ''} are typing`;
             }
-            typingIndicator.innerHTML = `<span>${text}</span><span class="typing-dots"></span>`;
+            typingIndicator.innerHTML = `<span>${text}</span><span class="typing-dot">.</span><span class="typing-dot">.</span><span class="typing-dot">.</span>`;
         }
 
         function emitTypingStart() {

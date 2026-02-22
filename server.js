@@ -361,14 +361,14 @@ io.on('connection', (socket) => {
 
     socket.on('typing-start', (data) => {
         const { roomId, username } = data;
-        if (roomId && username) {
+        if (roomId && username && socket.currentRoom === roomId) {
             socket.to(roomId).emit('user-typing', { username });
         }
     });
 
     socket.on('typing-stop', (data) => {
         const { roomId, username } = data;
-        if (roomId && username) {
+        if (roomId && username && socket.currentRoom === roomId) {
             socket.to(roomId).emit('user-stopped-typing', { username });
         }
     });
@@ -392,8 +392,12 @@ io.on('connection', (socket) => {
     });
 });
 
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-    console.log('Auto-cleanup: Messages older than 12 hours will be deleted');
-});
+if (require.main === module) {
+    const PORT = process.env.PORT || 3000;
+    server.listen(PORT, () => {
+        console.log(`Server running on port ${PORT}`);
+        console.log('Auto-cleanup: Messages older than 12 hours will be deleted');
+    });
+}
+
+module.exports = { app, server, io };

@@ -5,7 +5,8 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "nodemon server.js"
+    "dev": "nodemon server.js",
+    "test": "mocha tests/**/*.test.js --timeout 5000"
   },
   "dependencies": {
     "express": "^4.18.2",
@@ -18,5 +19,10 @@
     "websocket"
   ],
   "author": "Your Name",
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "chai": "^6.2.2",
+    "mocha": "^11.7.5",
+    "socket.io-client": "^4.8.3"
+  }
 }
