@@ -1,0 +1,20 @@
+{
+  "id": "FEAT-001",
+  "type": "chore",
+  "description": "Install dependencies and verify the existing app builds and runs correctly per README instructions (npm install, npm start).",
+  "status": "completed",
+  "steps": [
+    "Run `cd /projects/sandbox/terminal-chat-server && npm install` to install all dependencies (express, multer, socket.io)",
+    "Run `npm start` in background and verify server starts on port 3000 with the expected 'Server running on port 3000' output",
+    "Stop the background server after confirming it starts successfully"
+  ],
+  "acceptance_criteria": [
+    "npm install completes without errors",
+    "npm start launches the server and prints 'Server running on port 3000'"
+  ],
+  "verification": [
+    "Run `cd /projects/sandbox/terminal-chat-server && npm install` and confirm exit code 0",
+    "Run `npm start` in background, wait a few seconds, verify server is listening, then stop it"
+  ],
+  "findings": "npm install completed with 102 packages, 1 low severity vulnerability (non-blocking). Server starts successfully on port 3000 with auto-cleanup for messages older than 12 hours. No build step needed - just npm install + npm start."
+}
