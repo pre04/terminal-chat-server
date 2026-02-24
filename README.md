@@ -50,3 +50,8 @@ Visit `http://localhost:3000`
 - **Real-time**: WebSocket connections
 - **Storage**: In-memory (resets on server restart)
 - **Rooms**: URL-based room system
+
+## Authors
+
+- Pratibha
+- Mike
