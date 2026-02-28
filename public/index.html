@@ -535,6 +535,7 @@
         #gif-results {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
+            grid-auto-rows: 120px;
             align-content: start;
             gap: 4px;
             padding: 6px;
@@ -548,7 +549,6 @@
             border-radius: 3px;
             overflow: hidden;
             position: relative;
-            aspect-ratio: 4/3;
         }
         .gif-result-item:hover {
             border-color: #00ff00;
@@ -603,16 +603,14 @@
                 max-height: 150px;
             }
             #gif-picker {
-                max-width: none;
                 left: 5px;
                 right: 5px;
+                max-width: none;
                 max-height: 60vh;
             }
             #gif-results {
                 grid-template-columns: 1fr;
-            }
-            .gif-result-item {
-                aspect-ratio: 16/9;
+                grid-auto-rows: 200px;
             }
         }
         /* Reply quote block inside a message */
