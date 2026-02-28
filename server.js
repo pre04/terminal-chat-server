@@ -308,7 +308,7 @@ io.on('connection', (socket) => {
     });
     
     socket.on('send-message', (data) => {
-        const { roomId, user, text, type, image, voice, video } = data;
+        const { roomId, user, text, type, image, voice, video, replyTo } = data;
 
         // Store message
         if (!rooms[roomId]) rooms[roomId] = [];
@@ -321,7 +321,8 @@ io.on('connection', (socket) => {
             color: data.color || null,
             image: image || null,
             voice: voice || null,
-            video: video || null
+            video: video || null,
+            replyTo: replyTo || null
         };
 
         rooms[roomId].push(message);

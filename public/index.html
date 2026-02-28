@@ -606,6 +606,67 @@
                 right: 5px;
             }
         }
+        /* Reply quote block inside a message */
+        .reply-quote {
+            display: block;
+            border-left: 2px solid #4ecdc4;
+            padding: 1px 6px;
+            margin-bottom: 3px;
+            color: #555;
+            font-size: 12px;
+            font-style: italic;
+            cursor: pointer;
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+            max-width: 100%;
+        }
+        .reply-quote:hover {
+            color: #888;
+            background: rgba(78, 205, 196, 0.05);
+        }
+        .reply-quote .reply-author {
+            color: #4ecdc4;
+            font-style: normal;
+        }
+        /* Reply indicator bar above input */
+        #reply-indicator {
+            display: none;
+            border-left: 2px solid #00ff00;
+            padding: 3px 8px;
+            margin-bottom: 4px;
+            font-size: 12px;
+            color: #666;
+            background: #0a0a0a;
+            overflow: hidden;
+        }
+        #reply-indicator.active {
+            display: flex;
+            align-items: center;
+        }
+        #reply-indicator-content {
+            flex: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        #reply-indicator-author {
+            color: #4ecdc4;
+        }
+        #reply-cancel {
+            cursor: pointer;
+            color: #ff6b6b;
+            margin-left: 10px;
+            flex-shrink: 0;
+            font-size: 14px;
+            line-height: 1;
+        }
+        #reply-cancel:hover { color: #ff9999; }
+        /* Highlight message when scrolled to via reply */
+        .message.reply-highlight {
+            background: rgba(0, 255, 0, 0.08);
+            transition: background 0.3s;
+        }
         /* Typing indicator */
         #typing-indicator {
             min-height: 18px;
@@ -646,6 +707,10 @@
             <div id="gif-results">
                 <div id="gif-loading">Loading trending GIFs...</div>
             </div>
+        </div>
+        <div id="reply-indicator">
+            <span id="reply-indicator-content">↩ Replying to <span id="reply-indicator-author"></span>: <span id="reply-indicator-text"></span></span>
+            <span id="reply-cancel" title="Cancel reply">✕</span>
         </div>
         <div id="typing-indicator"></div>
         <div id="input-line">
@@ -731,6 +796,27 @@
         let audioChunks = [];
         let isRecording = false;
         let gifSearchTimeout = null;
+
+        // Reply state
+        let replyingTo = null;
+        const replyIndicator = document.getElementById('reply-indicator');
+        const replyIndicatorAuthor = document.getElementById('reply-indicator-author');
+        const replyIndicatorText = document.getElementById('reply-indicator-text');
+        document.getElementById('reply-cancel').onclick = cancelReply;
+
+        function startReply(msgData) {
+            replyingTo = msgData;
+            const snippet = (msgData.text || '').substring(0, 60) + ((msgData.text || '').length > 60 ? '…' : '');
+            replyIndicatorAuthor.textContent = msgData.user;
+            replyIndicatorText.textContent = snippet || '[media]';
+            replyIndicator.classList.add('active');
+            input.focus();
+        }
+
+        function cancelReply() {
+            replyingTo = null;
+            replyIndicator.classList.remove('active');
+        }
         
         const emojis = ['😀','😂','😍','🥺','😢','😡','👍','👎','❤️','🔥','🎉','💯','👀','🙏','💀','✨'];
         emojiPicker.innerHTML = emojis.map(e => `<span>${e}</span>`).join('');
@@ -751,10 +837,12 @@
             return id;
         }
         
-        function addMessage(user, text, type = 'user', color = null, time = Date.now(), image = null, voice = null, video = null) {
+        function addMessage(user, text, type = 'user', color = null, time = Date.now(), image = null, voice = null, video = null, replyTo = null) {
             const msg = document.createElement('div');
             msg.className = `message ${type}`;
             msg.dataset.time = time;
+            msg.dataset.user = user;
+            msg.dataset.text = text || '';
 
             if (type === 'user' && color) {
                 msg.classList.add(`color-${color}`);
@@ -798,9 +886,17 @@
                 autoGifHtml = `<img class="chat-gif" src="${gifUrlMatch[0]}" alt="GIF">`;
             }
 
+            // Build reply quote if this message is a reply
+            let replyQuoteHtml = '';
+            if (replyTo && replyTo.user) {
+                const escHtml = (s) => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+                const snippet = escHtml((replyTo.text || '').substring(0, 80)) + ((replyTo.text || '').length > 80 ? '…' : '');
+                replyQuoteHtml = `<span class="reply-quote" data-reply-time="${replyTo.time}"><span class="reply-author">↩ ${escHtml(replyTo.user)}:</span> ${snippet || '[media]'}</span>`;
+            }
+
             const statusClass = (type === 'user') ? (onlineUsers.has(user) ? 'online' : 'offline') : '';
             const statusDotHtml = (type === 'user') ? `<span class="inline-status-dot ${statusClass}" data-username="${user}"></span>` : '';
-            msg.innerHTML = `<span style="color: #ff6b6b">[${new Date(time).toLocaleTimeString()}]</span> ${statusDotHtml}<span style="color: #4ecdc4">${user}:</span> ${linkifiedText}${reactionsHtml}${imageHtml}${voiceHtml}${videoHtml}${autoGifHtml}`;
+            msg.innerHTML = `${replyQuoteHtml}<span style="color: #ff6b6b">[${new Date(time).toLocaleTimeString()}]</span> ${statusDotHtml}<span style="color: #4ecdc4">${user}:</span> ${linkifiedText}${reactionsHtml}${imageHtml}${voiceHtml}${videoHtml}${autoGifHtml}`;
             msg.onclick = (e) => {
                 if (e.target.classList.contains('image-toggle')) {
                     const img = e.target.nextElementSibling;
@@ -824,8 +920,20 @@
                     openImageModal(e.target.src);
                 } else if (e.target.tagName === 'IMG' && e.target.classList.contains('chat-image')) {
                     openImageModal(e.target.src);
+                } else if (e.target.classList.contains('reply-quote') || e.target.classList.contains('reply-author')) {
+                    // Click on reply quote → scroll to original message
+                    const quoteEl = e.target.classList.contains('reply-quote') ? e.target : e.target.closest('.reply-quote');
+                    if (quoteEl) {
+                        const origTime = quoteEl.dataset.replyTime;
+                        const targetMsg = document.querySelector(`.message[data-time="${origTime}"]`);
+                        if (targetMsg) {
+                            targetMsg.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            targetMsg.classList.add('reply-highlight');
+                            setTimeout(() => targetMsg.classList.remove('reply-highlight'), 1500);
+                        }
+                    }
                 } else if (e.target.tagName !== 'IMG' && !e.target.classList.contains('image-toggle') && e.target.tagName !== 'AUDIO' && !e.target.classList.contains('voice-toggle') && e.target.tagName !== 'VIDEO' && !e.target.classList.contains('video-toggle')) {
-                    showReactionPicker(msgId);
+                    showReactionPicker(msgId, { user, text, time });
                 }
             };
             messages.appendChild(msg);
@@ -847,17 +955,23 @@
             }
         };
         
-        function showReactionPicker(msgId) {
+        function showReactionPicker(msgId, msgData) {
             const quickEmojis = ['👍','❤️','😂','😮','😢','🔥'];
             const existing = document.getElementById('reaction-picker');
             if (existing) existing.remove();
-            
+
             const picker = document.createElement('div');
             picker.id = 'reaction-picker';
-            picker.style.cssText = 'position:fixed;bottom:60px;left:10px;background:#111;border:1px solid #00ff00;padding:5px;font-size:20px;z-index:100;';
-            picker.innerHTML = quickEmojis.map(e => `<span style="cursor:pointer;margin:3px">${e}</span>`).join('') + '<span style="cursor:pointer;margin:3px;color:#ff6b6b">✕</span>';
+            picker.style.cssText = 'position:fixed;bottom:60px;left:10px;background:#111;border:1px solid #00ff00;padding:5px;z-index:100;';
+            // Reply option at top, then emoji reactions
+            const replyHtml = msgData && msgData.user
+                ? `<div id="picker-reply-btn" style="cursor:pointer;padding:3px 8px;color:#00ff00;font-size:12px;border-bottom:1px solid #333;margin-bottom:4px;white-space:nowrap;">↩ Reply to ${msgData.user}</div>`
+                : '';
+            picker.innerHTML = replyHtml + `<span style="font-size:20px">` + quickEmojis.map(e => `<span style="cursor:pointer;margin:3px">${e}</span>`).join('') + `</span><span style="cursor:pointer;margin:3px;color:#ff6b6b;font-size:16px">✕</span>`;
             picker.onclick = (e) => {
-                if (e.target.tagName === 'SPAN' && e.target.textContent !== '✕') {
+                if (e.target.id === 'picker-reply-btn') {
+                    startReply(msgData);
+                } else if (e.target.tagName === 'SPAN' && e.target.textContent !== '✕' && e.target.style.fontSize !== '20px') {
                     addReaction(msgId, e.target.textContent);
                 }
                 picker.remove();
@@ -927,8 +1041,10 @@
                     color: type === 'user' ? userColor : null,
                     image: image,
                     voice: voice,
-                    video: video
+                    video: video,
+                    replyTo: replyingTo ? { user: replyingTo.user, text: replyingTo.text, time: replyingTo.time } : null
                 });
+                cancelReply();
             } else if (!authenticated) {
                 addMessage('system', 'Please enter room password first', 'system');
             }
@@ -1273,12 +1389,12 @@
         
         socket.on('load-messages', (roomMessages) => {
             roomMessages.forEach(msg => {
-                addMessage(msg.user, msg.text, msg.type, msg.color, msg.time, msg.image, msg.voice, msg.video);
+                addMessage(msg.user, msg.text, msg.type, msg.color, msg.time, msg.image, msg.voice, msg.video, msg.replyTo);
             });
         });
 
         socket.on('new-message', (message) => {
-            addMessage(message.user, message.text, message.type, message.color, message.time, message.image, message.voice, message.video);
+            addMessage(message.user, message.text, message.type, message.color, message.time, message.image, message.voice, message.video, message.replyTo);
             
             // Debug logging
             console.log('New message:', message.user, 'Current user:', username, 'Page visible:', isPageVisible, 'Notifications enabled:', notificationsEnabled);
