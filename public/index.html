@@ -44,6 +44,7 @@
         .message {
             margin: 3px 0;
             word-wrap: break-word;
+            white-space: pre-wrap;
             font-size: 14px;
             cursor: pointer;
             -webkit-user-select: text;
@@ -855,9 +856,15 @@
                 msg.classList.add(`color-${color}`);
             }
 
+            // HTML-escape text before linkification to prevent XSS
+            function escapeHtml(str) {
+                return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            }
+            const escapedText = escapeHtml(text);
+
             // Make URLs clickable
             const urlRegex = /(https?:\/\/[^\s]+)/g;
-            const linkifiedText = text.replace(urlRegex, '<a href="$1" target="_blank" style="color: #88ff88; text-decoration: underline;">$1</a>');
+            const linkifiedText = escapedText.replace(urlRegex, '<a href="$1" target="_blank" style="color: #88ff88; text-decoration: underline;">$1</a>');
 
             const msgId = 'msg_' + time;
             const reactions = messageReactions[msgId] || [];
