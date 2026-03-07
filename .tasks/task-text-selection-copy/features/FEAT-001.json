@@ -1,0 +1,29 @@
+{
+  "id": "FEAT-001",
+  "type": "feat",
+  "description": "Enable proper text selection and native copy (Ctrl+C / Cmd+C) in the chat UI on laptop/desktop browsers. The current message click handler (msg.onclick) intercepts mouse release events which disrupts text selection. Fix this by detecting text selection vs click and only triggering the reaction picker on actual clicks, not on text selection. Also add a visual copy-to-clipboard button that appears on hover for desktop users, and use README.md content as test data.",
+  "status": "in_progress",
+  "steps": [
+    "STEP 1 - Fix click handler to not interfere with text selection: In public/index.html, modify the msg.onclick handler (around line 914-952) inside the addMessage() function. Before opening the reaction picker, check if the user has selected text using window.getSelection(). If the selection is non-empty (meaning the user was selecting text), do NOT open the reaction picker. This way click-and-drag to select text works without interruption.",
+    "STEP 2 - Change cursor style on messages: In public/index.html CSS, change .message cursor from 'cursor: pointer' to 'cursor: text' so users see the text cursor on desktop, making it visually clear that text is selectable. Keep cursor: pointer only on interactive sub-elements like .image-toggle, .voice-toggle, .video-toggle, .reply-quote, .chat-gif, .chat-image.",
+    "STEP 3 - Add a copy-message button that appears on hover for desktop: Add a small copy button (using a clipboard icon or [Copy] text) that appears on message hover (desktop only, via CSS :hover or media query for min-width > 768px). When clicked, it copies that individual message's text content to the clipboard using navigator.clipboard.writeText() with the fallbackCopy() function as fallback. Show a brief visual confirmation. Style it to match the terminal theme (green border, transparent background). Position it absolutely relative to the message.",
+    "STEP 4 - Add keyboard shortcut hint: Update the /help command output (around line 1557-1569) to include a line mentioning that text can be selected and copied with Ctrl+C / Cmd+C on desktop browsers, and that hovering over a message shows a copy button.",
+    "STEP 5 - Write tests using README.md content: Create tests/text-selection-copy.test.js following the pattern in tests/multiline-messages.test.js. The tests should: (a) Read the actual README.md file content using fs.readFileSync. (b) Send README.md content as a chat message via socket.io. (c) Verify the message is received by another client with the full README content preserved (including all newlines, markdown syntax, headings, code blocks, bullet points). (d) Test sending individual sections of the README (e.g., just the Features section, just the Commands section) and verify they are preserved. (e) Test that long multi-paragraph README content survives round-trip through the message system. (f) Test the /copy command behavior by verifying the server correctly stores and retrieves messages containing README content."
+  ],
+  "acceptance_criteria": [
+    "Text selection with click-and-drag works on message elements without triggering the reaction picker",
+    "Native copy (Ctrl+C / Cmd+C) works on selected text in the chat UI",
+    "A copy button appears on message hover (desktop) that copies message text to clipboard",
+    "The /help command mentions text selection and copy support",
+    "All new tests in tests/text-selection-copy.test.js pass",
+    "All 15 existing tests continue to pass",
+    "README.md content is used as test data and survives round-trip through chat messages"
+  ],
+  "verification": [
+    "Run 'cd /projects/sandbox/terminal-chat-server && npm test' and confirm all existing + new tests pass",
+    "Inspect the CSS changes in public/index.html to confirm cursor: text on .message and cursor: pointer on interactive sub-elements",
+    "Inspect the onclick handler in addMessage() to confirm it checks window.getSelection() before triggering reactions"
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}

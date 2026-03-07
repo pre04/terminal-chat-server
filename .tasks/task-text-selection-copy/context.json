@@ -1,0 +1,23 @@
+{
+  "project_type": "Node.js + Express + Socket.io real-time terminal-style chat app",
+  "language": "JavaScript (Node.js backend, Vanilla JS frontend)",
+  "build_system": "npm",
+  "test_framework": "Mocha + Chai with socket.io-client for integration tests",
+  "build_command": "N/A (no build step)",
+  "test_command": "cd /projects/sandbox/terminal-chat-server && npm test",
+  "verification_instructions": "Run npm test to execute all mocha tests. All 15 existing tests plus new tests must pass.",
+  "snapshot_or_generated_files": null,
+  "setup_instructions": "cd /projects/sandbox/terminal-chat-server && npm install --include=dev",
+  "environment_constraints": "OPEN_INTERNET - full network access. Node.js v22 available via nvm.",
+  "contribution_requirements": "Use --include=dev when installing to get devDependencies (mocha, chai, socket.io-client).",
+  "key_patterns": "Tests follow pattern: require server, listen on port 0, use socket.io-client to connect, emit events, assert responses. Each test file has its own before/after hooks for server lifecycle. Helpers: connect(), joinRoom(), waitForEvent(). Frontend is a single index.html with inline CSS and JS.",
+  "relevant_files": [
+    "public/index.html - single-file frontend with all CSS and JS inline",
+    "server.js - Express + Socket.io backend",
+    "tests/typing-notifications.test.js - test pattern reference",
+    "tests/multiline-messages.test.js - test pattern reference",
+    "README.md - used as test data source (55 lines of project documentation)",
+    "package.json - npm scripts and dependencies"
+  ],
+  "directory_structure": "Root: server.js (backend), public/index.html (frontend), tests/ (mocha test files), README.md, package.json"
+}
