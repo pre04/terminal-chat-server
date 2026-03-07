@@ -1,0 +1,7 @@
+{
+  "task_id": "task-text-selection-copy",
+  "task_description": "Enable text selection and copy functionality in the terminal chat UI for laptop/desktop browsers. The msg.onclick handler on messages interferes with text selection by triggering the reaction picker. Fix this by detecting selection vs click. Add a hover-based copy button for individual messages on desktop. Write tests using README.md content as test data to verify message content preservation.",
+  "status": "in_progress",
+  "feature_order": ["FEAT-001"],
+  "blocked_reason": null
+}

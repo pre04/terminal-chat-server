@@ -46,14 +46,47 @@
             word-wrap: break-word;
             white-space: pre-wrap;
             font-size: 14px;
-            cursor: pointer;
+            cursor: text;
             -webkit-user-select: text;
             -moz-user-select: text;
             -ms-user-select: text;
             user-select: text;
+            position: relative;
         }
         .message:hover {
             background: rgba(255, 255, 255, 0.05);
+        }
+        .message .image-toggle,
+        .message .voice-toggle,
+        .message .video-toggle,
+        .message .reply-quote,
+        .message .chat-gif,
+        .message .chat-image,
+        .message .chat-video {
+            cursor: pointer;
+        }
+        .copy-msg-btn {
+            position: absolute;
+            top: 2px;
+            right: 4px;
+            opacity: 0;
+            background: transparent;
+            border: 1px solid #00ff00;
+            color: #00ff00;
+            font-family: 'Courier New', monospace;
+            font-size: 11px;
+            padding: 1px 5px;
+            cursor: pointer;
+            z-index: 10;
+            transition: opacity 0.15s;
+        }
+        .copy-msg-btn:hover {
+            background: rgba(0, 255, 0, 0.15);
+        }
+        @media (hover: hover) and (min-width: 769px) {
+            .message:hover .copy-msg-btn {
+                opacity: 1;
+            }
         }
         .reactions { font-size: 14px; margin-left: 10px; }
         #emoji-picker {
@@ -911,7 +944,36 @@
             const statusClass = (type === 'user') ? (onlineUsers.has(user) ? 'online' : 'offline') : '';
             const statusDotHtml = (type === 'user') ? `<span class="inline-status-dot ${statusClass}" data-username="${user}"></span>` : '';
             msg.innerHTML = `${replyQuoteHtml}<span style="color: #ff6b6b">[${new Date(time).toLocaleTimeString()}]</span> ${statusDotHtml}<span style="color: #4ecdc4">${user}:</span> ${linkifiedText}${reactionsHtml}${imageHtml}${voiceHtml}${videoHtml}${autoGifHtml}`;
+            if (type === 'user') {
+                const copyBtn = document.createElement('button');
+                copyBtn.className = 'copy-msg-btn';
+                copyBtn.textContent = '[Copy]';
+                copyBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    const msgText = text || '';
+                    if (navigator.clipboard && window.isSecureContext) {
+                        navigator.clipboard.writeText(msgText).then(() => {
+                            copyBtn.textContent = 'Copied!';
+                            setTimeout(() => { copyBtn.textContent = '[Copy]'; }, 1500);
+                        }).catch(() => {
+                            fallbackCopy(msgText);
+                            copyBtn.textContent = 'Copied!';
+                            setTimeout(() => { copyBtn.textContent = '[Copy]'; }, 1500);
+                        });
+                    } else {
+                        fallbackCopy(msgText);
+                        copyBtn.textContent = 'Copied!';
+                        setTimeout(() => { copyBtn.textContent = '[Copy]'; }, 1500);
+                    }
+                };
+                msg.appendChild(copyBtn);
+            }
             msg.onclick = (e) => {
+                // Allow text selection without triggering reactions
+                const selection = window.getSelection();
+                if (selection && selection.toString().trim().length > 0) {
+                    return;
+                }
                 if (e.target.classList.contains('image-toggle')) {
                     const img = e.target.nextElementSibling;
                     const isExpanded = img.classList.toggle('expanded');
@@ -1567,6 +1629,7 @@
                 addMessage('system', '/clear - Clear chat', 'system');
                 addMessage('system', '/room - Show room info', 'system');
                 addMessage('system', 'Tap any message to add reaction', 'system');
+                addMessage('system', 'Select text + Ctrl+C/Cmd+C to copy, or hover messages for [Copy] button', 'system');
                 addMessage('system', 'Colors: green, cyan, yellow, magenta, red, blue, orange, purple', 'system');
             } else if (text === '/users') {
                 usersPanel.classList.toggle('open');
