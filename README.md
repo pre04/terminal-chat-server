@@ -23,11 +23,13 @@ A real-time terminal-style chat application with WebSocket support.
 ## Local Development
 
 ```bash
-npm install
+npm install --include=dev
 npm start
 ```
 
 Visit `http://localhost:3000`
+
+> **Note:** The `.npmrc` file sets `omit=dev` for production deployments. Use `--include=dev` when installing locally to ensure devDependencies (test tools, etc.) are available.
 
 ## How to Use
 
