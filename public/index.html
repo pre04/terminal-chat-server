@@ -708,6 +708,55 @@
             background: rgba(0, 255, 0, 0.08);
             transition: background 0.3s;
         }
+        /* Huddle bar */
+        #huddle-bar {
+            display: none;
+            align-items: center;
+            gap: 8px;
+            background: #0a1a0a;
+            border: 1px solid #00aa00;
+            border-radius: 4px;
+            padding: 5px 10px;
+            margin-bottom: 8px;
+            font-size: 12px;
+            flex-wrap: wrap;
+        }
+        #huddle-bar .huddle-label {
+            color: #00ff00;
+            font-weight: bold;
+            letter-spacing: 1px;
+        }
+        #huddle-bar .huddle-live {
+            color: #ff6b6b;
+            font-size: 10px;
+            animation: pulse 1.5s infinite;
+        }
+        #huddle-bar .huddle-participants {
+            color: #88ff88;
+            flex: 1;
+            font-size: 11px;
+        }
+        .huddle-btn {
+            background: transparent;
+            border: 1px solid #00aa00;
+            color: #00ff00;
+            font-family: 'Courier New', monospace;
+            font-size: 11px;
+            cursor: pointer;
+            padding: 2px 7px;
+            border-radius: 3px;
+            white-space: nowrap;
+        }
+        .huddle-btn:hover {
+            background: rgba(0, 255, 0, 0.15);
+        }
+        .huddle-btn.danger {
+            border-color: #ff6b6b;
+            color: #ff6b6b;
+        }
+        .huddle-btn.danger:hover {
+            background: rgba(255, 107, 107, 0.15);
+        }
         /* Typing indicator */
         #typing-indicator {
             min-height: 18px;
@@ -733,6 +782,14 @@
 <body>
     <div id="terminal">
         <div id="header">Terminal Chat v4.0 | /help for commands <button id="users-btn"><span class="status-dot online" style="display:inline-block;width:6px;height:6px;vertical-align:middle;margin-right:3px"></span><span id="users-count">0</span> online</button></div>
+        <div id="huddle-bar">
+            <span class="huddle-label">HUDDLE</span>
+            <span class="huddle-live">&#9679; LIVE</span>
+            <span class="huddle-participants" id="huddle-participants-label"></span>
+            <button class="huddle-btn" id="huddle-join-btn">[ Join ]</button>
+            <button class="huddle-btn" id="huddle-mute-btn" style="display:none">[ Mute ]</button>
+            <button class="huddle-btn danger" id="huddle-leave-btn" style="display:none">[ Leave ]</button>
+        </div>
         <div id="users-panel">
             <div class="panel-title">Online Users</div>
             <div id="users-list"></div>
@@ -764,6 +821,7 @@
                     <button id="video-gallery-btn" class="attach-option">🎞️ Video Gallery</button>
                     <button id="voice-btn" class="attach-option">🎤 Voice Note</button>
                     <button id="gif-btn" class="attach-option">🎭 Send GIF</button>
+                    <button id="huddle-attach-btn" class="attach-option">🎙️ Start Huddle</button>
                 </div>
             </div>
             <input type="file" id="image-input" accept="image/jpeg,image/png,image/gif,image/webp" capture="environment">
@@ -1628,6 +1686,8 @@
                 addMessage('system', '/users - Toggle online users panel', 'system');
                 addMessage('system', '/clear - Clear chat', 'system');
                 addMessage('system', '/room - Show room info', 'system');
+                addMessage('system', '/huddle - Start or join a voice huddle', 'system');
+                addMessage('system', '/leavehuddle - Leave the current huddle', 'system');
                 addMessage('system', 'Tap any message to add reaction', 'system');
                 addMessage('system', 'Select text + Ctrl+C/Cmd+C to copy, or hover messages for [Copy] button', 'system');
                 addMessage('system', 'Colors: green, cyan, yellow, magenta, red, blue, orange, purple', 'system');
@@ -1635,6 +1695,10 @@
                 usersPanel.classList.toggle('open');
             } else if (text === '/emoji') {
                 emojiPicker.style.display = emojiPicker.style.display === 'block' ? 'none' : 'block';
+            } else if (text === '/huddle') {
+                startOrJoinHuddle();
+            } else if (text === '/leavehuddle') {
+                leaveHuddle();
             } else if (text.startsWith('/gif ') || text === '/gif') {
                 const query = text.substring(5).trim();
                 if (!query) {
@@ -1906,6 +1970,289 @@
             input.focus();
         });
         
+        // ===== HUDDLE =====
+
+        let huddleActive = false;
+        let huddleId = null;
+        let huddleParticipants = [];
+        let inHuddle = false;
+        let huddleMuted = false;
+        let localHuddleStream = null;
+        const peerConnections = new Map();
+        const pendingIceCandidates = new Map();
+
+        const huddleBar = document.getElementById('huddle-bar');
+        const huddleParticipantsLabel = document.getElementById('huddle-participants-label');
+        const huddleJoinBtn = document.getElementById('huddle-join-btn');
+        const huddleMuteBtn = document.getElementById('huddle-mute-btn');
+        const huddleLeaveBtn = document.getElementById('huddle-leave-btn');
+        const huddleAttachBtn = document.getElementById('huddle-attach-btn');
+
+        function updateHuddleUI() {
+            if (!huddleActive) {
+                huddleBar.style.display = 'none';
+                if (huddleAttachBtn) huddleAttachBtn.textContent = '🎙️ Start Huddle';
+                return;
+            }
+            huddleBar.style.display = 'flex';
+            const participantNames = huddleParticipants.map(p =>
+                p.socketId === socket.id ? p.username + ' (you)' : p.username
+            );
+            huddleParticipantsLabel.textContent = participantNames.join(', ');
+            huddleJoinBtn.style.display = inHuddle ? 'none' : 'inline-block';
+            huddleMuteBtn.style.display = inHuddle ? 'inline-block' : 'none';
+            huddleLeaveBtn.style.display = inHuddle ? 'inline-block' : 'none';
+            huddleMuteBtn.textContent = huddleMuted ? '[ Unmute ]' : '[ Mute ]';
+            if (huddleAttachBtn) {
+                huddleAttachBtn.textContent = inHuddle ? '🎙️ In Huddle' : '🎙️ Join Huddle';
+            }
+        }
+
+        async function startOrJoinHuddle() {
+            if (inHuddle) return;
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                addMessage('system', 'Huddle not supported: microphone API unavailable', 'system');
+                return;
+            }
+            try {
+                localHuddleStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+            } catch (err) {
+                if (err.name === 'NotAllowedError') {
+                    addMessage('system', 'Microphone access denied. Allow mic access to join huddle.', 'system');
+                } else {
+                    addMessage('system', 'Could not access microphone: ' + err.message, 'system');
+                }
+                return;
+            }
+            if (!huddleActive) {
+                socket.emit('huddle-start', { roomId });
+            } else {
+                socket.emit('huddle-join', { roomId });
+            }
+        }
+
+        function leaveHuddle() {
+            if (!inHuddle) return;
+            peerConnections.forEach(pc => pc.close());
+            peerConnections.clear();
+            pendingIceCandidates.clear();
+            document.querySelectorAll('[id^="huddle-audio-"]').forEach(el => el.remove());
+            if (localHuddleStream) {
+                localHuddleStream.getTracks().forEach(t => t.stop());
+                localHuddleStream = null;
+            }
+            inHuddle = false;
+            huddleMuted = false;
+            socket.emit('huddle-leave', { roomId });
+            updateHuddleUI();
+        }
+
+        function toggleHuddleMute() {
+            if (!localHuddleStream) return;
+            huddleMuted = !huddleMuted;
+            localHuddleStream.getAudioTracks().forEach(track => {
+                track.enabled = !huddleMuted;
+            });
+            updateHuddleUI();
+        }
+
+        async function createHuddlePeerConnection(peerSocketId) {
+            const pc = new RTCPeerConnection({
+                iceServers: [
+                    { urls: 'stun:stun.l.google.com:19302' },
+                    { urls: 'stun:stun1.l.google.com:19302' }
+                ]
+            });
+            peerConnections.set(peerSocketId, pc);
+
+            if (localHuddleStream) {
+                localHuddleStream.getTracks().forEach(track => {
+                    pc.addTrack(track, localHuddleStream);
+                });
+            }
+
+            pc.ontrack = (event) => {
+                let audio = document.getElementById('huddle-audio-' + peerSocketId);
+                if (!audio) {
+                    audio = document.createElement('audio');
+                    audio.id = 'huddle-audio-' + peerSocketId;
+                    audio.autoplay = true;
+                    document.body.appendChild(audio);
+                }
+                audio.srcObject = event.streams[0];
+            };
+
+            pc.onicecandidate = (event) => {
+                if (event.candidate) {
+                    socket.emit('huddle-signal', {
+                        toSocketId: peerSocketId,
+                        signal: { type: 'candidate', candidate: event.candidate }
+                    });
+                }
+            };
+
+            pc.onconnectionstatechange = () => {
+                if (pc.connectionState === 'failed') {
+                    pc.close();
+                    peerConnections.delete(peerSocketId);
+                }
+            };
+
+            return pc;
+        }
+
+        async function flushPendingIceCandidates(peerSocketId, pc) {
+            const candidates = pendingIceCandidates.get(peerSocketId) || [];
+            pendingIceCandidates.delete(peerSocketId);
+            for (const candidate of candidates) {
+                try {
+                    await pc.addIceCandidate(new RTCIceCandidate(candidate));
+                } catch (e) {
+                    console.warn('Failed to add pending ICE candidate:', e);
+                }
+            }
+        }
+
+        socket.on('huddle-state', (data) => {
+            huddleActive = true;
+            huddleId = data.huddleId;
+            huddleParticipants = data.participants;
+            updateHuddleUI();
+        });
+
+        socket.on('huddle-started', (data) => {
+            huddleActive = true;
+            huddleId = data.huddleId;
+            huddleParticipants = data.participants;
+            if (data.initiator.socketId !== socket.id) {
+                addMessage('system', data.initiator.username + ' started a huddle. Use /huddle or click [ Join ] to join.', 'system');
+            }
+            updateHuddleUI();
+        });
+
+        socket.on('huddle-joined', async (data) => {
+            inHuddle = true;
+            huddleId = data.huddleId;
+            huddleParticipants = data.participants;
+            for (const peer of data.existingPeers) {
+                const pc = await createHuddlePeerConnection(peer.socketId);
+                try {
+                    const offer = await pc.createOffer();
+                    await pc.setLocalDescription(offer);
+                    socket.emit('huddle-signal', {
+                        toSocketId: peer.socketId,
+                        signal: { type: 'offer', sdp: pc.localDescription }
+                    });
+                } catch (e) {
+                    console.error('Huddle offer error:', e);
+                }
+            }
+            addMessage('system', 'Joined huddle. Participants: ' + huddleParticipants.map(p => p.username).join(', '), 'system');
+            updateHuddleUI();
+        });
+
+        socket.on('huddle-user-joined', (data) => {
+            huddleParticipants = data.participants;
+            if (data.socketId !== socket.id) {
+                addMessage('system', data.username + ' joined the huddle', 'system');
+            }
+            updateHuddleUI();
+        });
+
+        socket.on('huddle-user-left', (data) => {
+            huddleParticipants = data.participants;
+            addMessage('system', data.username + ' left the huddle', 'system');
+            updateHuddleUI();
+        });
+
+        socket.on('huddle-peer-left', (data) => {
+            const pc = peerConnections.get(data.socketId);
+            if (pc) {
+                pc.close();
+                peerConnections.delete(data.socketId);
+            }
+            pendingIceCandidates.delete(data.socketId);
+            const audio = document.getElementById('huddle-audio-' + data.socketId);
+            if (audio) audio.remove();
+        });
+
+        socket.on('huddle-ended', () => {
+            huddleActive = false;
+            inHuddle = false;
+            huddleId = null;
+            huddleParticipants = [];
+            huddleMuted = false;
+            peerConnections.forEach(pc => pc.close());
+            peerConnections.clear();
+            pendingIceCandidates.clear();
+            document.querySelectorAll('[id^="huddle-audio-"]').forEach(el => el.remove());
+            if (localHuddleStream) {
+                localHuddleStream.getTracks().forEach(t => t.stop());
+                localHuddleStream = null;
+            }
+            addMessage('system', 'Huddle ended', 'system');
+            updateHuddleUI();
+        });
+
+        socket.on('huddle-error', (message) => {
+            addMessage('system', 'Huddle: ' + message, 'system');
+        });
+
+        socket.on('huddle-signal', async ({ fromSocketId, signal }) => {
+            if (!inHuddle) return;
+            let pc = peerConnections.get(fromSocketId);
+
+            if (signal.type === 'offer') {
+                if (!pc) {
+                    pc = await createHuddlePeerConnection(fromSocketId);
+                }
+                try {
+                    await pc.setRemoteDescription(new RTCSessionDescription(signal.sdp));
+                    await flushPendingIceCandidates(fromSocketId, pc);
+                    const answer = await pc.createAnswer();
+                    await pc.setLocalDescription(answer);
+                    socket.emit('huddle-signal', {
+                        toSocketId: fromSocketId,
+                        signal: { type: 'answer', sdp: pc.localDescription }
+                    });
+                } catch (e) {
+                    console.error('Huddle offer handling error:', e);
+                }
+            } else if (signal.type === 'answer') {
+                if (pc) {
+                    try {
+                        await pc.setRemoteDescription(new RTCSessionDescription(signal.sdp));
+                        await flushPendingIceCandidates(fromSocketId, pc);
+                    } catch (e) {
+                        console.error('Huddle answer handling error:', e);
+                    }
+                }
+            } else if (signal.type === 'candidate') {
+                if (pc && pc.remoteDescription) {
+                    try {
+                        await pc.addIceCandidate(new RTCIceCandidate(signal.candidate));
+                    } catch (e) {
+                        console.warn('ICE candidate error:', e);
+                    }
+                } else {
+                    if (!pendingIceCandidates.has(fromSocketId)) {
+                        pendingIceCandidates.set(fromSocketId, []);
+                    }
+                    pendingIceCandidates.get(fromSocketId).push(signal.candidate);
+                }
+            }
+        });
+
+        huddleJoinBtn.onclick = () => startOrJoinHuddle();
+        huddleMuteBtn.onclick = () => toggleHuddleMute();
+        huddleLeaveBtn.onclick = () => leaveHuddle();
+        if (huddleAttachBtn) {
+            huddleAttachBtn.onclick = () => {
+                attachMenu.classList.remove('open');
+                startOrJoinHuddle();
+            };
+        }
+
         // Initial message
         addMessage('system', 'Commands: /nick, /color, /notify, /copy, /help', 'system');
     </script>
