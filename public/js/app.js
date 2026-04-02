@@ -36,7 +36,11 @@ const typingIndicator = document.getElementById('typing-indicator');
 
 let username = localStorage.getItem('chat_username') || 'guest';
 let userColor = localStorage.getItem('chat_color') || 'cyan';
-let roomId = new URLSearchParams(window.location.search).get('room') || generateRoomId();
+let roomId = new URLSearchParams(window.location.search).get('room') || (() => {
+    const id = generateRoomId();
+    window.history.replaceState({}, '', `?room=${id}`);
+    return id;
+})();
 let connected = false;
 let authenticated = false;
 let pendingPassword = ''; // Track password being attempted
@@ -92,13 +96,6 @@ emojiPicker.onclick = (e) => {
 // Set initial username
 prompt.textContent = `${username}@chat:~$`;
 
-// generateRoomId is imported from utils.js; this wrapper also updates the URL
-function generateRoomId() {
-    // Import shadowed by local function - call the module function directly
-    const id = (() => Math.random().toString(36).substring(2, 8))();
-    window.history.replaceState({}, '', `?room=${id}`);
-    return id;
-}
 
 function addMessage(user, text, type = 'user', color = null, time = Date.now(), image = null, voice = null, video = null, replyTo = null) {
     const msg = document.createElement('div');
@@ -160,7 +157,7 @@ function addMessage(user, text, type = 'user', color = null, time = Date.now(), 
 
     const statusClass = (type === 'user') ? (onlineUsers.has(user) ? 'online' : 'offline') : '';
     const statusDotHtml = (type === 'user') ? `<span class="inline-status-dot ${statusClass}" data-username="${user}"></span>` : '';
-    msg.innerHTML = `${replyQuoteHtml}<span style="color: #ff6b6b">[${new Date(time).toLocaleTimeString()}]</span> ${statusDotHtml}<span style="color: #4ecdc4">${user}:</span> ${linkifiedText}${reactionsHtml}${imageHtml}${voiceHtml}${videoHtml}${autoGifHtml}`;
+    msg.innerHTML = `${replyQuoteHtml}<span style="color: #ff6b6b">[${new Date(time).toLocaleTimeString()}]</span> ${statusDotHtml}<span style="color: #4ecdc4">${escapeHtml(user)}:</span> ${linkifiedText}${reactionsHtml}${imageHtml}${voiceHtml}${videoHtml}${autoGifHtml}`;
     if (type === 'user') {
         const copyBtn = document.createElement('button');
         copyBtn.className = 'copy-msg-btn';
