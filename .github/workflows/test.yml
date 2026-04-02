@@ -28,7 +28,7 @@ jobs:
                     tests/multiline-messages.test.js \
                     tests/text-selection-copy.test.js \
                     tests/typing-notifications.test.js; do
-            ./node_modules/.bin/mocha "$f" --timeout 10000
+            ./node_modules/.bin/mocha "$f" --timeout 10000 --exit
           done
 
   ui:
