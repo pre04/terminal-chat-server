@@ -1,0 +1,18 @@
+{
+  "manifest_version": 3,
+  "name": "Terminal Chat",
+  "version": "1.0.0",
+  "description": "Connect to a Terminal Chat Server from your browser toolbar",
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Terminal Chat",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "options_page": "options.html",
+  "permissions": ["storage"],
+  "host_permissions": ["<all_urls>"]
+}

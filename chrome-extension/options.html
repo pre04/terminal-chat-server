@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Terminal Chat — Settings</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0a0a0a;
+      color: #c8ffc8;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 13px;
+      padding: 32px;
+      min-height: 100vh;
+    }
+
+    h1 {
+      color: #00ff66;
+      font-size: 16px;
+      letter-spacing: 3px;
+      margin-bottom: 24px;
+      border-bottom: 1px solid #1e3a1e;
+      padding-bottom: 12px;
+    }
+
+    h1 span { color: #4d994d; font-size: 12px; }
+
+    .section { margin-bottom: 24px; }
+
+    label {
+      display: block;
+      font-size: 11px;
+      color: #00cc44;
+      letter-spacing: 1px;
+      margin-bottom: 6px;
+    }
+
+    input[type="text"], input[type="url"] {
+      width: 100%;
+      max-width: 480px;
+      background: #111;
+      border: 1px solid #1e3a1e;
+      color: #c8ffc8;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 13px;
+      padding: 8px 10px;
+      outline: none;
+    }
+
+    input:focus { border-color: #00cc44; }
+
+    .help {
+      margin-top: 6px;
+      font-size: 10px;
+      color: #4d994d;
+    }
+
+    button {
+      background: transparent;
+      border: 1px solid #00ff66;
+      color: #00ff66;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 12px;
+      padding: 8px 20px;
+      cursor: pointer;
+      letter-spacing: 1px;
+      margin-top: 8px;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    button:hover { background: #00ff66; color: #0a0a0a; }
+
+    #status {
+      margin-top: 12px;
+      font-size: 11px;
+      color: #00cc44;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <h1>// TERMINAL CHAT <span>— SETTINGS</span></h1>
+
+  <div class="section">
+    <label>&gt; DEFAULT SERVER URL</label>
+    <input type="url" id="server-url" placeholder="http://localhost:3000" />
+    <div class="help">The URL of your Terminal Chat Server. Used as the default when opening the extension.</div>
+  </div>
+
+  <button id="save-btn">[ SAVE SETTINGS ]</button>
+  <div id="status">Settings saved.</div>
+
+  <script src="options.js"></script>
+</body>
+</html>
