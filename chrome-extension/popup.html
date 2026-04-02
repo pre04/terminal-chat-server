@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Terminal Chat</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <!-- Connect Screen -->
+  <div id="connect-screen" class="screen">
+    <div class="logo">
+      <pre class="ascii-logo">
+ ████████╗ ██████╗██╗  ██╗ █████╗ ████████╗
+    ██╔══╝██╔════╝██║  ██║██╔══██╗╚══██╔══╝
+    ██║   ██║     ███████║███████║   ██║
+    ██║   ██║     ██╔══██║██╔══██║   ██║
+    ██║   ╚██████╗██║  ██║██║  ██║   ██║
+    ╚═╝    ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝   ╚═╝  </pre>
+      <div class="logo-sub">// TERMINAL CHAT CLIENT v1.0.0</div>
+    </div>
+
+    <div class="form-group">
+      <label class="field-label">&gt; SERVER URL</label>
+      <div class="field-row">
+        <input type="text" id="server-url" class="term-input" placeholder="http://localhost:3000" />
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="field-label">&gt; ROOM ID</label>
+      <div class="field-row">
+        <input type="text" id="room-id" class="term-input" placeholder="Enter room code..." maxlength="16" />
+        <button id="gen-room-btn" class="term-btn small" title="Generate random room ID">GEN</button>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="field-label">&gt; USERNAME</label>
+      <div class="field-row">
+        <input type="text" id="username" class="term-input" placeholder="anonymous" maxlength="20" />
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="field-label">&gt; COLOR</label>
+      <div class="color-picker" id="color-picker">
+        <button class="color-swatch active" data-color="cyan" style="background:#00ffff" title="Cyan"></button>
+        <button class="color-swatch" data-color="green" style="background:#00ff00" title="Green"></button>
+        <button class="color-swatch" data-color="yellow" style="background:#ffff00" title="Yellow"></button>
+        <button class="color-swatch" data-color="magenta" style="background:#ff00ff" title="Magenta"></button>
+        <button class="color-swatch" data-color="red" style="background:#ff3333" title="Red"></button>
+        <button class="color-swatch" data-color="blue" style="background:#00bfff" title="Blue"></button>
+        <button class="color-swatch" data-color="orange" style="background:#ff8c00" title="Orange"></button>
+        <button class="color-swatch" data-color="purple" style="background:#bf00ff" title="Purple"></button>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="field-label">&gt; ROOM PASSWORD <span class="optional">(optional)</span></label>
+      <div class="field-row">
+        <input type="password" id="room-password" class="term-input" placeholder="Leave blank if none" />
+      </div>
+    </div>
+
+    <div id="connect-error" class="error-msg" style="display:none"></div>
+
+    <button id="connect-btn" class="term-btn primary full-width">[ CONNECT ]</button>
+
+    <div class="footer-links">
+      <a href="#" id="open-options">Configure Server</a>
+    </div>
+  </div>
+
+  <!-- Chat Screen -->
+  <div id="chat-screen" class="screen" style="display:none">
+    <div class="chat-header">
+      <div class="status-bar">
+        <span class="status-dot connected" id="status-dot"></span>
+        <span id="room-label" class="room-label">ROOM: ------</span>
+        <span class="spacer"></span>
+        <span id="user-count" class="user-count">0 online</span>
+        <button id="users-toggle" class="icon-btn" title="Toggle user list">&#9776;</button>
+        <button id="disconnect-btn" class="icon-btn" title="Disconnect">&#10005;</button>
+      </div>
+    </div>
+
+    <div class="chat-body">
+      <div id="messages" class="messages"></div>
+      <div id="typing-indicator" class="typing-indicator" style="display:none"></div>
+
+      <div id="user-panel" class="user-panel" style="display:none">
+        <div class="user-panel-title">// ONLINE USERS</div>
+        <div id="user-list" class="user-list"></div>
+      </div>
+    </div>
+
+    <div class="chat-input-area">
+      <span class="prompt">&gt;</span>
+      <input type="text" id="msg-input" class="msg-input" placeholder="Type a message..." maxlength="2000" autocomplete="off" />
+      <button id="send-btn" class="send-btn" title="Send">&#9658;</button>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
