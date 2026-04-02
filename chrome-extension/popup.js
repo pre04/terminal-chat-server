@@ -226,12 +226,17 @@ function handleBackgroundMessage(msg) {
       break;
     }
 
-    case 'auth-success':
+    case 'auth-success': {
+      const wasReconnect = state.connected === false && chatScreen.style.display !== 'none';
       setConnectBtnState(false);
       savePrefs();
       state.connected = true;
       showChatScreen();
+      if (wasReconnect) {
+        appendMessage({ type: 'system', text: 'Reconnected.', time: Date.now() });
+      }
       break;
+    }
 
     case 'auth-failed':
       setConnectBtnState(false);
@@ -246,8 +251,15 @@ function handleBackgroundMessage(msg) {
     case 'disconnected':
       state.connected = false;
       if (chatScreen.style.display !== 'none') {
-        appendMessage({ type: 'system', text: 'Disconnected from server.', time: Date.now() });
-        setStatus('disconnected');
+        appendMessage({ type: 'system', text: 'Disconnected. Reconnecting...', time: Date.now() });
+        setStatus('connecting');
+      }
+      break;
+
+    case 'reconnecting':
+      // Background is waiting to retry — keep the chat screen visible
+      if (chatScreen.style.display !== 'none') {
+        setStatus('connecting');
       }
       break;
 

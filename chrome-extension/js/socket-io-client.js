@@ -38,7 +38,13 @@ export class SocketIOClient {
       return;
     }
 
-    if (eioType === '3') return; // Engine.io PONG — ignore
+    if (eioType === '2') {
+      // Engine.io PING from server — must respond with PONG to stay connected
+      if (this.ws?.readyState === WebSocket.OPEN) this.ws.send('3');
+      return;
+    }
+
+    if (eioType === '3') return; // Engine.io PONG (server ack of our keepalive) — ignore
 
     if (eioType === '4') {
       const sioType = data[1];

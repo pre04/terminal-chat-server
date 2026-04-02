@@ -24,6 +24,12 @@ const activePorts = new Set();
 
 let unreadCount = 0;
 
+// Auto-reconnect state
+let reconnectCredentials = null; // last successful credentials
+let reconnectTimer       = null;
+let reconnectDelay       = 2000; // ms, doubles on each failed attempt (cap 60s)
+let intentionalDisconnect = false;
+
 // ============================================================
 // Helpers
 // ============================================================
@@ -55,29 +61,59 @@ function onNewMessage(msg) {
 }
 
 // ============================================================
+// Auto-reconnect
+// ============================================================
+
+function scheduleReconnect() {
+  if (intentionalDisconnect || reconnectTimer || !reconnectCredentials) return;
+
+  broadcast({ type: 'reconnecting' });
+
+  reconnectTimer = setTimeout(() => {
+    reconnectTimer = null;
+    if (intentionalDisconnect || !reconnectCredentials) return;
+    doConnect(reconnectCredentials);
+    // Increase delay for next attempt, cap at 60 s
+    reconnectDelay = Math.min(reconnectDelay * 2, 60000);
+  }, reconnectDelay);
+}
+
+function cancelReconnect() {
+  if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+}
+
+// ============================================================
 // Connection management
 // ============================================================
 
 function doConnect({ serverUrl, roomId, username, color, password }) {
   if (socket) { socket.disconnect(); socket = null; core = null; }
 
+  intentionalDisconnect = false;
+  reconnectCredentials  = { serverUrl, roomId, username, color, password };
   connState = { connected: false, serverUrl, roomId, username, color };
-  messages  = [];
-  users     = [];
+
+  // Only clear history on a fresh user-initiated connect, not on auto-reconnect
+  if (messages.length === 0) users = [];
 
   socket = new SocketIOClient();
   core   = new ChatCore(socket);
 
   // Socket-level error (ChatCore does not forward connect_error)
   socket.on('connect_error', (err) => {
-    broadcast({ type: 'connect_error', payload: err?.message || 'Connection failed' });
     socket = null; core = null;
     connState.connected = false;
+    // If this was the first-ever attempt (no prior session), report to popup
+    if (!reconnectCredentials || reconnectDelay === 2000) {
+      broadcast({ type: 'connect_error', payload: err?.message || 'Connection failed' });
+    }
+    scheduleReconnect();
   });
 
   core.addEventListener('disconnect', () => {
     connState.connected = false;
     broadcast({ type: 'disconnected' });
+    scheduleReconnect();
   });
 
   core.addEventListener('connect', () => {
@@ -86,12 +122,17 @@ function doConnect({ serverUrl, roomId, username, color, password }) {
 
   core.addEventListener('auth-success', () => {
     connState.connected = true;
+    reconnectDelay = 2000; // reset backoff on successful auth
+    cancelReconnect();
     // Persist credentials for the browser session (including password)
     chrome.storage.session.set({ serverUrl, roomId, username, color, password });
     broadcast({ type: 'auth-success' });
   });
 
   core.addEventListener('auth-failed', (e) => {
+    // Wrong password — don't retry automatically
+    intentionalDisconnect = true;
+    cancelReconnect();
     broadcast({ type: 'auth-failed', payload: e.detail });
     socket = null; core = null;
     connState.connected = false;
@@ -174,6 +215,10 @@ chrome.runtime.onConnect.addListener(port => {
         break;
 
       case 'disconnect':
+        intentionalDisconnect = true;
+        cancelReconnect();
+        reconnectCredentials = null;
+        reconnectDelay = 2000;
         if (socket) { socket.disconnect(); socket = null; core = null; }
         connState.connected = false;
         unreadCount = 0;
