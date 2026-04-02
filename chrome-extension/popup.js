@@ -1,5 +1,3 @@
-import { SocketIOClient } from './js/socket-io-client.js';
-import { ChatCore } from './js/chat-core.js';
 import { escapeHtml, linkify, formatTime, generateRoomId, COLOR_HEX } from './js/utils.js';
 
 // Use the popup's original color values (sourced from COLOR_HEX but the popup
@@ -19,18 +17,19 @@ const COLOR_MAP = {
 // State
 // ============================================================
 
-let socket = null;
-let core = null;
+let port = null; // port to background service worker
+
 let state = {
-  serverUrl: 'http://localhost:3000',
-  roomId: '',
-  username: 'anonymous',
-  color: 'cyan',
-  password: '',
-  typingUsers: new Set(),
-  typingTimer: null,
-  isTyping: false,
+  serverUrl:     'http://localhost:3000',
+  roomId:        '',
+  username:      'anonymous',
+  color:         'cyan',
+  password:      '',
+  typingUsers:   new Set(),
+  typingTimer:   null,
+  isTyping:      false,
   userPanelOpen: false,
+  connected:     false,
 };
 
 // ============================================================
@@ -70,9 +69,9 @@ const sendBtn        = $('send-btn');
 function savePrefs() {
   chrome.storage.local.set({
     serverUrl: state.serverUrl,
-    username: state.username,
-    color: state.color,
-    roomId: state.roomId,
+    username:  state.username,
+    color:     state.color,
+    roomId:    state.roomId,
   });
 }
 
@@ -85,6 +84,23 @@ function loadPrefs() {
       if (prefs.roomId)    state.roomId    = prefs.roomId;
       resolve();
     });
+  });
+}
+
+// Load session credentials (includes password, cleared when browser closes)
+function loadSessionPrefs() {
+  return new Promise(resolve => {
+    chrome.storage.session.get(
+      ['serverUrl', 'roomId', 'username', 'color', 'password'],
+      prefs => {
+        if (prefs.serverUrl) state.serverUrl = prefs.serverUrl;
+        if (prefs.roomId)    state.roomId    = prefs.roomId;
+        if (prefs.username)  state.username  = prefs.username;
+        if (prefs.color)     state.color     = prefs.color;
+        if (prefs.password)  state.password  = prefs.password;
+        resolve();
+      }
+    );
   });
 }
 
@@ -122,6 +138,7 @@ function showConnectScreen() {
   chatScreen.style.display    = 'none';
   connectScreen.style.display = 'flex';
   setConnectBtnState(false);
+  state.connected = false;
 }
 
 function appendMessage(msg) {
@@ -175,6 +192,128 @@ function updateTypingIndicator() {
 }
 
 // ============================================================
+// Background port
+// ============================================================
+
+function connectPort() {
+  port = chrome.runtime.connect({ name: 'popup' });
+  port.onMessage.addListener(handleBackgroundMessage);
+  port.onDisconnect.addListener(() => {
+    port = null;
+    // Service worker was killed; retry after a short delay
+    setTimeout(connectPort, 500);
+  });
+}
+
+function handleBackgroundMessage(msg) {
+  switch (msg.type) {
+
+    case 'state': {
+      const s = msg.payload;
+      if (s.connected) {
+        state.serverUrl = s.serverUrl;
+        state.roomId    = s.roomId;
+        state.username  = s.username;
+        state.color     = s.color;
+        state.connected = true;
+
+        messagesEl.innerHTML = '';
+        if (Array.isArray(s.messages)) s.messages.forEach(appendMessage);
+        if (Array.isArray(s.users))    renderUsers(s.users);
+
+        showChatScreen();
+      }
+      break;
+    }
+
+    case 'auth-success': {
+      const wasReconnect = state.connected === false && chatScreen.style.display !== 'none';
+      setConnectBtnState(false);
+      savePrefs();
+      state.connected = true;
+      showChatScreen();
+      if (wasReconnect) {
+        appendMessage({ type: 'system', text: 'Reconnected.', time: Date.now() });
+      }
+      break;
+    }
+
+    case 'auth-failed':
+      setConnectBtnState(false);
+      showError(msg.payload || 'Authentication failed');
+      break;
+
+    case 'connect_error':
+      setConnectBtnState(false);
+      showError(`Connection failed: ${msg.payload}`);
+      break;
+
+    case 'disconnected':
+      state.connected = false;
+      if (chatScreen.style.display !== 'none') {
+        appendMessage({ type: 'system', text: 'Disconnected. Reconnecting...', time: Date.now() });
+        setStatus('connecting');
+      }
+      break;
+
+    case 'reconnecting':
+      // Background is waiting to retry — keep the chat screen visible
+      if (chatScreen.style.display !== 'none') {
+        setStatus('connecting');
+      }
+      break;
+
+    case 'load-messages':
+      messagesEl.innerHTML = '';
+      if (Array.isArray(msg.payload)) msg.payload.forEach(appendMessage);
+      break;
+
+    case 'new-message': {
+      const m = msg.payload;
+      appendMessage(m);
+      if (m.user) {
+        state.typingUsers.delete(m.user);
+        updateTypingIndicator();
+      }
+      break;
+    }
+
+    case 'user-list':
+      renderUsers(Array.isArray(msg.payload) ? msg.payload : []);
+      break;
+
+    case 'user-typing': {
+      const { username } = msg.payload;
+      if (username && username !== state.username) {
+        state.typingUsers.add(username);
+        updateTypingIndicator();
+      }
+      break;
+    }
+
+    case 'user-stopped-typing': {
+      const { username } = msg.payload;
+      state.typingUsers.delete(username);
+      updateTypingIndicator();
+      break;
+    }
+
+    case 'password-set':
+      appendMessage({ type: 'system', text: msg.payload, time: Date.now() });
+      break;
+
+    case 'password-failed':
+      appendMessage({ type: 'system', text: msg.payload, time: Date.now() });
+      break;
+
+    case 'chat-deleted':
+      messagesEl.innerHTML = '';
+      appendMessage({ type: 'system', text: 'Chat history deleted.', time: Date.now() });
+      break;
+  }
+}
+
+// ============================================================
 // Connect flow
 // ============================================================
 
@@ -199,107 +338,10 @@ function doConnect() {
   setConnectBtnState(true);
   setStatus('connecting');
 
-  if (socket) { socket.disconnect(); socket = null; core = null; }
-
-  socket = new SocketIOClient();
-  core = new ChatCore(socket);
-
-  // Register events BEFORE connecting
-  core.addEventListener('connect', () => {
-    setStatus('connected');
-    core.join({
-      roomId: state.roomId,
-      password: state.password,
-      username: state.username,
-      color: state.color,
-    });
+  port?.postMessage({
+    type:    'connect',
+    payload: { serverUrl, roomId, username, color: state.color, password },
   });
-
-  core.addEventListener('connect_error', (e) => {
-    const err = e.detail;
-    setConnectBtnState(false);
-    showError(`Connection failed: ${err.message}`);
-    socket.disconnect();
-    socket = null;
-    core = null;
-  });
-
-  core.addEventListener('disconnect', () => {
-    if (chatScreen.style.display !== 'none') {
-      appendMessage({ type: 'system', text: 'Disconnected from server.', time: Date.now() });
-      setStatus('disconnected');
-    }
-  });
-
-  core.addEventListener('auth-success', () => {
-    setConnectBtnState(false);
-    savePrefs();
-    showChatScreen();
-  });
-
-  core.addEventListener('auth-failed', (e) => {
-    const reason = e.detail;
-    setConnectBtnState(false);
-    showError(reason || 'Authentication failed');
-    socket.disconnect();
-    socket = null;
-    core = null;
-  });
-
-  core.addEventListener('load-messages', (e) => {
-    const messages = e.detail;
-    messagesEl.innerHTML = '';
-    if (Array.isArray(messages)) {
-      messages.forEach(appendMessage);
-    }
-  });
-
-  core.addEventListener('new-message', (e) => {
-    const msg = e.detail;
-    appendMessage(msg);
-    // Clear sender from typing users
-    if (msg.user) {
-      state.typingUsers.delete(msg.user);
-      updateTypingIndicator();
-    }
-  });
-
-  core.addEventListener('user-list', (e) => {
-    const users = e.detail;
-    renderUsers(Array.isArray(users) ? users : []);
-  });
-
-  core.addEventListener('user-typing', (e) => {
-    const { username } = e.detail;
-    if (username && username !== state.username) {
-      state.typingUsers.add(username);
-      updateTypingIndicator();
-    }
-  });
-
-  core.addEventListener('user-stopped-typing', (e) => {
-    const { username } = e.detail;
-    state.typingUsers.delete(username);
-    updateTypingIndicator();
-  });
-
-  core.addEventListener('password-set', (e) => {
-    const msg = e.detail;
-    appendMessage({ type: 'system', text: msg, time: Date.now() });
-  });
-
-  core.addEventListener('password-failed', (e) => {
-    const msg = e.detail;
-    appendMessage({ type: 'system', text: msg, time: Date.now() });
-  });
-
-  core.addEventListener('chat-deleted', () => {
-    messagesEl.innerHTML = '';
-    appendMessage({ type: 'system', text: 'Chat history deleted.', time: Date.now() });
-  });
-
-  // Connect AFTER registering events
-  socket.connect(serverUrl);
 }
 
 // ============================================================
@@ -308,7 +350,7 @@ function doConnect() {
 
 function sendMessage() {
   const text = msgInput.value.trim();
-  if (!text || !socket?.connected) return;
+  if (!text || !state.connected) return;
 
   // Handle slash commands locally
   if (text === '/clear') {
@@ -329,7 +371,7 @@ function sendMessage() {
     const newName = text.slice(6).trim();
     if (newName) {
       state.username = newName;
-      core.updateUser(newName, state.color);
+      port?.postMessage({ type: 'update-user', payload: { username: newName, color: state.color } });
       savePrefs();
     }
     msgInput.value = '';
@@ -337,8 +379,7 @@ function sendMessage() {
     return;
   }
 
-  core.send({ text });
-
+  port?.postMessage({ type: 'send-message', payload: { text } });
   msgInput.value = '';
   stopTyping();
 }
@@ -348,18 +389,14 @@ function sendMessage() {
 // ============================================================
 
 function startTyping() {
-  if (socket?.connected) {
-    core.startTyping();
-  }
+  port?.postMessage({ type: 'start-typing' });
   clearTimeout(state.typingTimer);
   state.typingTimer = setTimeout(stopTyping, 3000);
 }
 
 function stopTyping() {
   clearTimeout(state.typingTimer);
-  if (socket?.connected) {
-    core.stopTyping();
-  }
+  port?.postMessage({ type: 'stop-typing' });
 }
 
 // ============================================================
@@ -377,7 +414,7 @@ colorPicker.addEventListener('click', e => {
 
 // Generate room ID
 genRoomBtn.addEventListener('click', () => {
-  roomIdInput.value = randomId();
+  roomIdInput.value = generateRoomId();
 });
 
 // Connect button
@@ -416,7 +453,7 @@ msgInput.addEventListener('input', () => {
 
 // Disconnect
 disconnectBtn.addEventListener('click', () => {
-  if (socket) { socket.disconnect(); socket = null; core = null; }
+  port?.postMessage({ type: 'disconnect' });
   state.typingUsers.clear();
   showConnectScreen();
 });
@@ -432,17 +469,24 @@ usersToggle.addEventListener('click', () => {
 // ============================================================
 
 async function init() {
+  connectPort();
+
   await loadPrefs();
+  await loadSessionPrefs(); // overwrites with more recent session values if present
 
   // Populate form fields
   serverUrlInput.value = state.serverUrl;
   roomIdInput.value    = state.roomId;
   usernameInput.value  = state.username !== 'anonymous' ? state.username : '';
+  passwordInput.value  = state.password;
 
   // Highlight saved color
   colorPicker.querySelectorAll('.color-swatch').forEach(s => {
     s.classList.toggle('active', s.dataset.color === state.color);
   });
+
+  // Ask background if we are already connected — jump straight to chat if so
+  port?.postMessage({ type: 'get-state' });
 }
 
 init();
