@@ -43,4 +43,4 @@ jobs:
       - name: Install dependencies (including Puppeteer + Chromium)
         run: npm install --include=dev
       - name: Run UI rendering tests
-        run: ./node_modules/.bin/mocha tests/ui-rendering.test.js --timeout 60000
+        run: ./node_modules/.bin/mocha tests/ui-rendering.test.js --timeout 60000 --exit
