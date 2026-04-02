@@ -1,0 +1,46 @@
+name: Tests
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+jobs:
+  unit:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm install --include=dev
+        env:
+          PUPPETEER_SKIP_DOWNLOAD: "true"
+      - name: Run unit tests
+        # Run each test file individually to avoid the port-conflict issue
+        # that occurs when mocha runs all files in a single process.
+        run: |
+          for f in tests/huddle.test.js \
+                    tests/multiline-messages.test.js \
+                    tests/text-selection-copy.test.js \
+                    tests/typing-notifications.test.js; do
+            ./node_modules/.bin/mocha "$f" --timeout 10000 --exit
+          done
+
+  ui:
+    name: UI Rendering Tests (Puppeteer)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies (including Puppeteer + Chromium)
+        run: npm install --include=dev
+      - name: Run UI rendering tests
+        run: ./node_modules/.bin/mocha tests/ui-rendering.test.js --timeout 60000 --exit

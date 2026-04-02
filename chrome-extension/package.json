@@ -1,0 +1,8 @@
+{
+  "name": "terminal-chat-extension",
+  "version": "1.0.0",
+  "description": "Chrome extension for Terminal Chat Server",
+  "scripts": {
+    "build": "node build.js"
+  }
+}
