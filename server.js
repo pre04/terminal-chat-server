@@ -74,6 +74,7 @@ const videoUpload = multer({
 const rooms = {};
 const roomPasswords = {};
 const roomUsers = {}; // roomId -> Map<socketId, { username, color }>
+const roomHuddles = {}; // roomId -> { huddleId, initiatorSocketId, participants: Map<socketId, {username, color}> }
 
 // Auto-cleanup messages older than 12 hours
 const CLEANUP_INTERVAL = 12 * 60 * 60 * 1000; // 12 hours in milliseconds
@@ -245,6 +246,33 @@ app.use((err, req, res, next) => {
     next();
 });
 
+function handleHuddleLeave(socket, roomId) {
+    if (!roomId) return;
+    const huddle = roomHuddles[roomId];
+    if (!huddle || !huddle.participants.has(socket.id)) return;
+
+    const userData = huddle.participants.get(socket.id);
+    huddle.participants.delete(socket.id);
+
+    if (huddle.participants.size === 0) {
+        delete roomHuddles[roomId];
+        io.to(roomId).emit('huddle-ended', { huddleId: huddle.huddleId });
+        console.log(`Huddle ${huddle.huddleId} ended in room ${roomId} (last participant left)`);
+    } else {
+        // Notify remaining peers to close their connection to this socket
+        huddle.participants.forEach((_, peerSocketId) => {
+            io.to(peerSocketId).emit('huddle-peer-left', { socketId: socket.id });
+        });
+        io.to(roomId).emit('huddle-user-left', {
+            huddleId: huddle.huddleId,
+            socketId: socket.id,
+            username: userData.username,
+            participants: Array.from(huddle.participants.entries()).map(([sid, info]) => ({ socketId: sid, ...info }))
+        });
+        console.log(`${userData.username} left huddle ${huddle.huddleId} in room ${roomId}`);
+    }
+}
+
 function broadcastUserList(roomId) {
     if (!roomUsers[roomId]) return;
     // Deduplicate by username - each nick appears once, online if any socket exists
@@ -287,6 +315,15 @@ io.on('connection', (socket) => {
         }
 
         socket.emit('auth-success');
+
+        // Send current huddle state if one exists
+        if (roomHuddles[roomId]) {
+            const huddle = roomHuddles[roomId];
+            socket.emit('huddle-state', {
+                huddleId: huddle.huddleId,
+                participants: Array.from(huddle.participants.entries()).map(([sid, info]) => ({ socketId: sid, ...info }))
+            });
+        }
 
         // Broadcast updated user list to all users in room
         broadcastUserList(roomId);
@@ -374,8 +411,103 @@ io.on('connection', (socket) => {
         }
     });
 
+    socket.on('huddle-start', (data) => {
+        const { roomId } = data;
+        if (!socket.currentRoom || socket.currentRoom !== roomId) return;
+
+        if (roomHuddles[roomId]) {
+            socket.emit('huddle-error', 'A huddle is already active in this room');
+            return;
+        }
+
+        const huddleId = crypto.randomBytes(8).toString('hex');
+        const userData = roomUsers[roomId] && roomUsers[roomId].get(socket.id);
+        const username = userData ? userData.username : 'guest';
+        const color = userData ? userData.color : 'cyan';
+
+        roomHuddles[roomId] = {
+            huddleId,
+            initiatorSocketId: socket.id,
+            participants: new Map([[socket.id, { username, color }]])
+        };
+
+        io.to(roomId).emit('huddle-started', {
+            huddleId,
+            initiator: { socketId: socket.id, username, color },
+            participants: [{ socketId: socket.id, username, color }]
+        });
+
+        socket.emit('huddle-joined', {
+            huddleId,
+            participants: [{ socketId: socket.id, username, color }],
+            existingPeers: []
+        });
+
+        console.log(`Huddle ${huddleId} started in room ${roomId} by ${username}`);
+    });
+
+    socket.on('huddle-join', (data) => {
+        const { roomId } = data;
+        if (!socket.currentRoom || socket.currentRoom !== roomId) return;
+
+        const huddle = roomHuddles[roomId];
+        if (!huddle) {
+            socket.emit('huddle-error', 'No active huddle in this room');
+            return;
+        }
+
+        if (huddle.participants.has(socket.id)) return;
+
+        const userData = roomUsers[roomId] && roomUsers[roomId].get(socket.id);
+        const username = userData ? userData.username : 'guest';
+        const color = userData ? userData.color : 'cyan';
+
+        const existingPeers = Array.from(huddle.participants.entries()).map(([sid, info]) => ({ socketId: sid, ...info }));
+        huddle.participants.set(socket.id, { username, color });
+
+        io.to(roomId).emit('huddle-user-joined', {
+            huddleId: huddle.huddleId,
+            socketId: socket.id,
+            username,
+            color,
+            participants: Array.from(huddle.participants.entries()).map(([sid, info]) => ({ socketId: sid, ...info }))
+        });
+
+        socket.emit('huddle-joined', {
+            huddleId: huddle.huddleId,
+            participants: Array.from(huddle.participants.entries()).map(([sid, info]) => ({ socketId: sid, ...info })),
+            existingPeers
+        });
+
+        console.log(`${username} joined huddle ${huddle.huddleId} in room ${roomId}`);
+    });
+
+    socket.on('huddle-leave', (data) => {
+        const { roomId } = data;
+        handleHuddleLeave(socket, roomId);
+    });
+
+    socket.on('huddle-end', (data) => {
+        const { roomId } = data;
+        const huddle = roomHuddles[roomId];
+        if (!huddle) return;
+
+        delete roomHuddles[roomId];
+        io.to(roomId).emit('huddle-ended', { huddleId: huddle.huddleId });
+        console.log(`Huddle ${huddle.huddleId} ended in room ${roomId}`);
+    });
+
+    socket.on('huddle-signal', (data) => {
+        const { toSocketId, signal } = data;
+        io.to(toSocketId).emit('huddle-signal', {
+            fromSocketId: socket.id,
+            signal
+        });
+    });
+
     socket.on('disconnect', () => {
         const roomId = socket.currentRoom;
+        handleHuddleLeave(socket, roomId);
         if (roomId && roomUsers[roomId]) {
             // Notify others that this user stopped typing on disconnect
             const userData = roomUsers[roomId].get(socket.id);
