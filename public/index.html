@@ -757,6 +757,56 @@
         .huddle-btn.danger:hover {
             background: rgba(255, 107, 107, 0.15);
         }
+        #huddle-video-panel {
+            display: none;
+            background: #050f05;
+            border: 1px solid #005500;
+            border-radius: 4px;
+            padding: 8px;
+            margin-bottom: 8px;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .huddle-video-container {
+            position: relative;
+            width: 160px;
+        }
+        .huddle-video-container video {
+            width: 160px;
+            height: 120px;
+            object-fit: cover;
+            background: #000;
+            border: 1px solid #005500;
+            border-radius: 3px;
+            display: block;
+        }
+        .huddle-video-label {
+            position: absolute;
+            bottom: 4px;
+            left: 4px;
+            color: #00ff00;
+            font-size: 10px;
+            background: rgba(0,0,0,0.6);
+            padding: 1px 4px;
+            border-radius: 2px;
+            font-family: 'Courier New', monospace;
+        }
+        .huddle-video-container.camera-off video {
+            visibility: hidden;
+        }
+        .huddle-video-no-cam {
+            width: 160px;
+            height: 120px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #000;
+            border: 1px solid #005500;
+            border-radius: 3px;
+            color: #005500;
+            font-size: 11px;
+            font-family: 'Courier New', monospace;
+        }
         /* Typing indicator */
         #typing-indicator {
             min-height: 18px;
@@ -788,8 +838,10 @@
             <span class="huddle-participants" id="huddle-participants-label"></span>
             <button class="huddle-btn" id="huddle-join-btn">[ Join ]</button>
             <button class="huddle-btn" id="huddle-mute-btn" style="display:none">[ Mute ]</button>
+            <button class="huddle-btn" id="huddle-camera-btn" style="display:none">[ Camera Off ]</button>
             <button class="huddle-btn danger" id="huddle-leave-btn" style="display:none">[ Leave ]</button>
         </div>
+        <div id="huddle-video-panel"></div>
         <div id="users-panel">
             <div class="panel-title">Online Users</div>
             <div id="users-list"></div>
@@ -821,7 +873,7 @@
                     <button id="video-gallery-btn" class="attach-option">🎞️ Video Gallery</button>
                     <button id="voice-btn" class="attach-option">🎤 Voice Note</button>
                     <button id="gif-btn" class="attach-option">🎭 Send GIF</button>
-                    <button id="huddle-attach-btn" class="attach-option">🎙️ Start Huddle</button>
+                    <button id="huddle-attach-btn" class="attach-option">📹 Start Huddle</button>
                 </div>
             </div>
             <input type="file" id="image-input" accept="image/jpeg,image/png,image/gif,image/webp" capture="environment">
@@ -1686,7 +1738,7 @@
                 addMessage('system', '/users - Toggle online users panel', 'system');
                 addMessage('system', '/clear - Clear chat', 'system');
                 addMessage('system', '/room - Show room info', 'system');
-                addMessage('system', '/huddle - Start or join a voice huddle', 'system');
+                addMessage('system', '/huddle - Start or join a video huddle', 'system');
                 addMessage('system', '/leavehuddle - Leave the current huddle', 'system');
                 addMessage('system', 'Tap any message to add reaction', 'system');
                 addMessage('system', 'Select text + Ctrl+C/Cmd+C to copy, or hover messages for [Copy] button', 'system');
@@ -1977,6 +2029,7 @@
         let huddleParticipants = [];
         let inHuddle = false;
         let huddleMuted = false;
+        let huddleCameraOff = false;
         let localHuddleStream = null;
         const peerConnections = new Map();
         const pendingIceCandidates = new Map();
@@ -1985,13 +2038,15 @@
         const huddleParticipantsLabel = document.getElementById('huddle-participants-label');
         const huddleJoinBtn = document.getElementById('huddle-join-btn');
         const huddleMuteBtn = document.getElementById('huddle-mute-btn');
+        const huddleCameraBtn = document.getElementById('huddle-camera-btn');
         const huddleLeaveBtn = document.getElementById('huddle-leave-btn');
         const huddleAttachBtn = document.getElementById('huddle-attach-btn');
+        const huddleVideoPanel = document.getElementById('huddle-video-panel');
 
         function updateHuddleUI() {
             if (!huddleActive) {
                 huddleBar.style.display = 'none';
-                if (huddleAttachBtn) huddleAttachBtn.textContent = '🎙️ Start Huddle';
+                if (huddleAttachBtn) huddleAttachBtn.textContent = '📹 Start Huddle';
                 return;
             }
             huddleBar.style.display = 'flex';
@@ -2001,10 +2056,13 @@
             huddleParticipantsLabel.textContent = participantNames.join(', ');
             huddleJoinBtn.style.display = inHuddle ? 'none' : 'inline-block';
             huddleMuteBtn.style.display = inHuddle ? 'inline-block' : 'none';
+            huddleCameraBtn.style.display = inHuddle ? 'inline-block' : 'none';
             huddleLeaveBtn.style.display = inHuddle ? 'inline-block' : 'none';
             huddleMuteBtn.textContent = huddleMuted ? '[ Unmute ]' : '[ Mute ]';
+            huddleCameraBtn.textContent = huddleCameraOff ? '[ Camera On ]' : '[ Camera Off ]';
+            huddleVideoPanel.style.display = inHuddle ? 'flex' : 'none';
             if (huddleAttachBtn) {
-                huddleAttachBtn.textContent = inHuddle ? '🎙️ In Huddle' : '🎙️ Join Huddle';
+                huddleAttachBtn.textContent = inHuddle ? '📹 In Huddle' : '📹 Join Huddle';
             }
         }
 
@@ -2014,16 +2072,46 @@
                 addMessage('system', 'Huddle not supported: microphone API unavailable', 'system');
                 return;
             }
+            let hasVideo = false;
             try {
-                localHuddleStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+                localHuddleStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+                hasVideo = true;
             } catch (err) {
                 if (err.name === 'NotAllowedError') {
                     addMessage('system', 'Microphone access denied. Allow mic access to join huddle.', 'system');
-                } else {
-                    addMessage('system', 'Could not access microphone: ' + err.message, 'system');
+                    return;
                 }
-                return;
+                // Camera unavailable — fall back to audio only
+                try {
+                    localHuddleStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+                } catch (err2) {
+                    addMessage('system', 'Could not access microphone: ' + err2.message, 'system');
+                    return;
+                }
             }
+            // Show local video preview
+            huddleVideoPanel.innerHTML = '';
+            const localContainer = document.createElement('div');
+            localContainer.className = 'huddle-video-container';
+            localContainer.id = 'huddle-video-local';
+            if (hasVideo) {
+                const localVideo = document.createElement('video');
+                localVideo.autoplay = true;
+                localVideo.muted = true;
+                localVideo.playsInline = true;
+                localVideo.srcObject = localHuddleStream;
+                localContainer.appendChild(localVideo);
+            } else {
+                const noCam = document.createElement('div');
+                noCam.className = 'huddle-video-no-cam';
+                noCam.textContent = '[no camera]';
+                localContainer.appendChild(noCam);
+            }
+            const localLabel = document.createElement('span');
+            localLabel.className = 'huddle-video-label';
+            localLabel.textContent = 'You';
+            localContainer.appendChild(localLabel);
+            huddleVideoPanel.appendChild(localContainer);
             if (!huddleActive) {
                 socket.emit('huddle-start', { roomId });
             } else {
@@ -2036,13 +2124,14 @@
             peerConnections.forEach(pc => pc.close());
             peerConnections.clear();
             pendingIceCandidates.clear();
-            document.querySelectorAll('[id^="huddle-audio-"]').forEach(el => el.remove());
+            huddleVideoPanel.innerHTML = '';
             if (localHuddleStream) {
                 localHuddleStream.getTracks().forEach(t => t.stop());
                 localHuddleStream = null;
             }
             inHuddle = false;
             huddleMuted = false;
+            huddleCameraOff = false;
             socket.emit('huddle-leave', { roomId });
             updateHuddleUI();
         }
@@ -2053,6 +2142,19 @@
             localHuddleStream.getAudioTracks().forEach(track => {
                 track.enabled = !huddleMuted;
             });
+            updateHuddleUI();
+        }
+
+        function toggleHuddleCamera() {
+            if (!localHuddleStream) return;
+            huddleCameraOff = !huddleCameraOff;
+            localHuddleStream.getVideoTracks().forEach(track => {
+                track.enabled = !huddleCameraOff;
+            });
+            const localContainer = document.getElementById('huddle-video-local');
+            if (localContainer) {
+                localContainer.classList.toggle('camera-off', huddleCameraOff);
+            }
             updateHuddleUI();
         }
 
@@ -2072,14 +2174,23 @@
             }
 
             pc.ontrack = (event) => {
-                let audio = document.getElementById('huddle-audio-' + peerSocketId);
-                if (!audio) {
-                    audio = document.createElement('audio');
-                    audio.id = 'huddle-audio-' + peerSocketId;
-                    audio.autoplay = true;
-                    document.body.appendChild(audio);
+                let container = document.getElementById('huddle-video-' + peerSocketId);
+                if (!container) {
+                    container = document.createElement('div');
+                    container.className = 'huddle-video-container';
+                    container.id = 'huddle-video-' + peerSocketId;
+                    const video = document.createElement('video');
+                    video.autoplay = true;
+                    video.playsInline = true;
+                    const peer = huddleParticipants.find(p => p.socketId === peerSocketId);
+                    const label = document.createElement('span');
+                    label.className = 'huddle-video-label';
+                    label.textContent = peer ? peer.username : peerSocketId.substring(0, 6);
+                    container.appendChild(video);
+                    container.appendChild(label);
+                    huddleVideoPanel.appendChild(container);
                 }
-                audio.srcObject = event.streams[0];
+                container.querySelector('video').srcObject = event.streams[0];
             };
 
             pc.onicecandidate = (event) => {
@@ -2172,8 +2283,8 @@
                 peerConnections.delete(data.socketId);
             }
             pendingIceCandidates.delete(data.socketId);
-            const audio = document.getElementById('huddle-audio-' + data.socketId);
-            if (audio) audio.remove();
+            const container = document.getElementById('huddle-video-' + data.socketId);
+            if (container) container.remove();
         });
 
         socket.on('huddle-ended', () => {
@@ -2185,11 +2296,12 @@
             peerConnections.forEach(pc => pc.close());
             peerConnections.clear();
             pendingIceCandidates.clear();
-            document.querySelectorAll('[id^="huddle-audio-"]').forEach(el => el.remove());
+            huddleVideoPanel.innerHTML = '';
             if (localHuddleStream) {
                 localHuddleStream.getTracks().forEach(t => t.stop());
                 localHuddleStream = null;
             }
+            huddleCameraOff = false;
             addMessage('system', 'Huddle ended', 'system');
             updateHuddleUI();
         });
@@ -2245,6 +2357,7 @@
 
         huddleJoinBtn.onclick = () => startOrJoinHuddle();
         huddleMuteBtn.onclick = () => toggleHuddleMute();
+        huddleCameraBtn.onclick = () => toggleHuddleCamera();
         huddleLeaveBtn.onclick = () => leaveHuddle();
         if (huddleAttachBtn) {
             huddleAttachBtn.onclick = () => {
