@@ -1,16 +1,14 @@
 import { escapeHtml, linkify, formatTime, generateRoomId, COLOR_HEX } from './js/utils.js';
 
-// Use the popup's original color values (sourced from COLOR_HEX but the popup
-// had slightly different values: red=#ff3333, blue=#00bfff, orange=#ff8c00, purple=#bf00ff)
+// Derive COLOR_MAP from the shared COLOR_HEX, overriding only the 4 colors where
+// the popup uses different hex values for better contrast on dark backgrounds.
+// This prevents drift when new colors are added to COLOR_HEX in utils.js.
 const COLOR_MAP = {
-  cyan:    COLOR_HEX.cyan,
-  green:   COLOR_HEX.green,
-  yellow:  COLOR_HEX.yellow,
-  magenta: COLOR_HEX.magenta,
-  red:     '#ff3333',
-  blue:    '#00bfff',
-  orange:  '#ff8c00',
-  purple:  '#bf00ff',
+  ...COLOR_HEX,
+  red:    '#ff3333',
+  blue:   '#00bfff',
+  orange: '#ff8c00',
+  purple: '#bf00ff',
 };
 
 // ============================================================
