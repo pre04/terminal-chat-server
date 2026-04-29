@@ -131,6 +131,19 @@ describe('UI Rendering — message display', function () {
         assert.ok(hasColorClass, 'color-magenta class not applied to message');
     });
 
+    // Test for new color from the expanded 16-color palette to verify new colors get the correct CSS class
+    it('applies the correct color class for new palette color (teal)', async function () {
+        await injectMessage({ user: 'tealuser', text: 'tealcolortest', color: 'teal' });
+
+        const hasColorClass = await page.evaluate(() => {
+            const msg = [...document.querySelectorAll('#messages .message')]
+                .find(m => m.dataset.text === 'tealcolortest');
+            return msg ? msg.classList.contains('color-teal') : false;
+        });
+
+        assert.ok(hasColorClass, 'color-teal class not applied to message');
+    });
+
     it('renders a system message with system class (no user class)', async function () {
         await injectMessage({ user: 'system', text: 'sys-msg-test', type: 'system', color: null });
 

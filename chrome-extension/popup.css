@@ -152,9 +152,10 @@ body {
 }
 
 /* ===== Color Picker ===== */
+/* Gap reduced from 8px to 6px to accommodate 16 color swatches in the expanded palette */
 .color-picker {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   align-items: center;
   flex-wrap: wrap;
 }

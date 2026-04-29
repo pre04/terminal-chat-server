@@ -11,6 +11,15 @@ const COLOR_MAP = {
   blue:    '#00bfff',
   orange:  '#ff8c00',
   purple:  '#bf00ff',
+  // New colors added for the expanded 16-color palette (using COLOR_HEX values since no legacy overrides exist)
+  pink:    COLOR_HEX.pink,
+  lime:    COLOR_HEX.lime,
+  teal:    COLOR_HEX.teal,
+  gold:    COLOR_HEX.gold,
+  coral:   COLOR_HEX.coral,
+  indigo:  COLOR_HEX.indigo,
+  mint:    COLOR_HEX.mint,
+  crimson: COLOR_HEX.crimson,
 };
 
 // ============================================================
