@@ -27,7 +27,8 @@ export function generateRoomId() {
     return Math.random().toString(36).substring(2, 8);
 }
 
-export const USER_COLORS = ['green', 'cyan', 'yellow', 'magenta', 'red', 'blue', 'orange', 'purple'];
+// Expanded color palette from 8 to 16 colors to give users more personalization options
+export const USER_COLORS = ['green', 'cyan', 'yellow', 'magenta', 'red', 'blue', 'orange', 'purple', 'pink', 'lime', 'teal', 'gold', 'coral', 'indigo', 'mint', 'crimson'];
 
 export const COLOR_HEX = {
     cyan:    '#00ffff',
@@ -38,4 +39,13 @@ export const COLOR_HEX = {
     blue:    '#6b9eff',
     orange:  '#ffa500',
     purple:  '#9966cc',
+    // New colors added as part of the palette expansion from 8 to 16
+    pink:    '#ff69b4',
+    lime:    '#32cd32',
+    teal:    '#008080',
+    gold:    '#ffd700',
+    coral:   '#ff7f50',
+    indigo:  '#4b0082',
+    mint:    '#98ff98',
+    crimson: '#dc143c',
 };

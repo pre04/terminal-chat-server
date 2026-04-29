@@ -803,7 +803,8 @@ async function handleMessage(text) {
         sendMessage('system', `${username} joined the chat`, 'system');
     } else if (text.startsWith('/color ')) {
         const newColor = text.substring(7).toLowerCase();
-        const validColors = ['green', 'cyan', 'yellow', 'magenta', 'red', 'blue', 'orange', 'purple'];
+        // Use imported USER_COLORS instead of a hardcoded array so the /color command stays in sync with utils.js
+        const validColors = USER_COLORS;
 
         if (validColors.includes(newColor)) {
             userColor = newColor;
@@ -848,7 +849,8 @@ async function handleMessage(text) {
         addMessage('system', '/leavehuddle - Leave the current huddle', 'system');
         addMessage('system', 'Tap any message to add reaction', 'system');
         addMessage('system', 'Select text + Ctrl+C/Cmd+C to copy, or hover messages for [Copy] button', 'system');
-        addMessage('system', 'Colors: green, cyan, yellow, magenta, red, blue, orange, purple', 'system');
+        // Dynamically list available colors from USER_COLORS so it stays in sync with utils.js
+        addMessage('system', 'Colors: ' + USER_COLORS.join(', '), 'system');
     } else if (text === '/users') {
         usersPanel.classList.toggle('open');
     } else if (text === '/emoji') {
